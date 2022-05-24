@@ -1,4 +1,4 @@
-# Canvas 是什么
+# Canvas
 
 ## 基本概念
 
