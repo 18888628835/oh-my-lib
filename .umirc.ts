@@ -1,25 +1,44 @@
 import { defineConfig } from 'dumi';
+import componentsMenu from './menus/components';
+import docsMenu from './menus/docs';
 
-const repo = 'dumi-template';
+const repo = 'oh-my-lib';
+const navs = [
+  { title: 'Blog', path: '/docs' },
+  { title: '组件库', path: '/components' },
+  {
+    title: 'GitHub',
+    path: 'https://github.com/18888628835',
+  },
+];
 
 export default defineConfig({
   title: repo,
-  favicon:
-    'https://user-images.githubusercontent.com/9554297/83762004-a0761b00-a6a9-11ea-83b4-9c8ff721d4b8.png',
-  logo:
-    'https://user-images.githubusercontent.com/9554297/83762004-a0761b00-a6a9-11ea-83b4-9c8ff721d4b8.png',
+  favicon: `/${repo}/lightbulb.png`,
+  logo: `/${repo}/lightbulb.png`,
   outputPath: 'docs-dist',
   mode: 'site',
   hash: true,
-  // Because of using GitHub Pages
   base: `/${repo}/`,
   publicPath: `/${repo}/`,
-  navs: [
-    null,
-    {
-      title: 'GitHub',
-      path: 'https://github.com/umijs/dumi-template',
+  alias: {
+    src: '/src',
+    components: '/src/components',
+  },
+  apiParser: {
+    propFilter: {
+      // 是否忽略从 node_modules 继承的属性，默认值为 false
+      skipNodeModules: true,
+      // 需要忽略的属性名列表，默认为空数组
+      skipPropsWithName: [],
+      // 是否忽略没有文档说明的属性，默认值为 false
+      skipPropsWithoutDoc: false,
     },
-  ],
-  // more config: https://d.umijs.org/config
+  },
+  exportStatic: {},
+  navs,
+  menus: {
+    ...componentsMenu,
+    ...docsMenu,
+  },
 });
