@@ -188,4 +188,4 @@ export default () => {
 };
 ```
 
-<API src='./VTable.tsx'>
+<API src='./v-table.tsx'>
