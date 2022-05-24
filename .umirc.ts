@@ -1,16 +1,8 @@
 import { defineConfig } from 'dumi';
-import componentsMenu from './menus/components';
-import docsMenu from './menus/docs';
+import nav from './routes/nav';
+import componentsMenu from './routes/menu-components';
 
 const repo = 'oh-my-lib';
-const navs = [
-  { title: 'Blog', path: '/docs' },
-  { title: '组件库', path: '/components' },
-  {
-    title: 'GitHub',
-    path: 'https://github.com/18888628835',
-  },
-];
 
 export default defineConfig({
   title: repo,
@@ -36,9 +28,8 @@ export default defineConfig({
     },
   },
   exportStatic: {},
-  navs,
+  navs: nav,
   menus: {
     ...componentsMenu,
-    ...docsMenu,
   },
 });
