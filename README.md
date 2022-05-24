@@ -8,9 +8,17 @@
 
 ## 目录
 
+[Git](https://18888628835.github.io/oh-my-lib/其他/git)
+
+[CSS 高级技巧](https://18888628835.github.io/oh-my-lib/css)
+
 [前端工程化](https://18888628835.github.io/oh-my-lib/其他/前端工程化)
 
 [前端可视化](https://18888628835.github.io/oh-my-lib/其他/前端可视化)
+
+[组件库](https://18888628835.github.io/oh-my-lib/components)
+
+[react-drag-resizable](https://18888628835.github.io/react-drag-resizable/)
 
 ## 勘误及提问
 
