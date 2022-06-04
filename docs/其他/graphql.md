@@ -4,539 +4,443 @@ toc: menu
 
 # GraphQL
 
-## 服务端
+## Apollo-server
 
-使用 Express 并额外安装两个依赖：
+### hello world 示例
+
+使用 Apollo-server 并安装依赖：
 
 ```bash
-npm install express express-graphql graphql --save
+npm install apollo-server
 ```
 
-其中`express`用来启动服务器。`express-graphql`用来构建`GraphQL API`服务器，响应`/graphql`的 HTTP 请求。`graphql`用来创建 `schema`
+接着在 `index.js`中写入一个`hello world`的示例：
 
-```javascript
-var express = require('express');
-var { graphqlHTTP } = require('express-graphql');
-var { buildSchema } = require('graphql');
-
-// 使用 GraphQL Schema Language 创建一个 schema
-var schema = buildSchema(`
+```js
+const { ApolloServer, gql } = require('apollo-server');
+// 定义 schema
+const typeDefs = gql`
   type Query {
     hello: String
   }
-`);
-
-// root 提供所有 API 入口端点相应的解析器函数
-var root = {
-  hello: () => {
-    return 'Hello world!';
+`;
+// 处理数据
+const resolvers = {
+  Query: {
+    hello: () => {
+      return 'world';
+    },
   },
 };
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+});
 
-var app = express();
-app.use(
-  '/graphql',
-  graphqlHTTP({
-    schema: schema,
-    rootValue: root,
-    graphiql: true,
-  }),
-);
-app.listen(4000);
+server.listen().then(({ url }) => {
+  console.log(`server is ready`);
+});
 ```
 
-当服务端设置`graphiql: true`时，可以使用浏览器来手动执行`GraphQL`查询。
+在写 graphql 时，我们分成两步：
 
-直接访问`http://localhost:4000/graphql`即可看到界面，然后用输入`GraphQL`查询语句，即可看到对应的数据类型：
+- 使用`typeDefs`是用来定义`graphql` 的 `schema` 查询语句
+- 使用`resolvers`来实现`schema`，将数据返回出去
 
-<img src="../assets/image-20220416222115030.png" alt="image-20220416222115030" style="zoom:50%;" />
+接着我们可以访问`http://localhost:4000/graphql`，这时候会跳转到`Apollo Server`的`graphql playground`页面，我们可以通过这个页面来测试刚才写的 `hello`有没有效果。
 
-## 客户端
+`query`语句在前端对应的查询语句是：
 
-浏览器端采用`fetch`也可以查询,在客户端打开开发者工具，输入以下代码：
-
-```javascript
-async function request() {
-  const res = await fetch('http://localhost:4000/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({ query: '{ hello }' }),
-  });
-  await res.json().then(data => console.log(data));
+```scheme
+query {
+  hello
 }
-request();
 ```
 
-就可以看到对应的数据
+![image-20220603232913543](../assets/image-20220603232913543.png)
 
-```json
-{ "data": { "hello": "hello world" } }
+### 基本类型
+
+在`hello world`示例中，我们定义的 `hello`的返回值是 `String`。
+
+下面是所有的`schema`的基本类型：
+
+- `String` - 字符串
+- `Int` - 数字
+- `Float` - 浮点数
+- `Boolean` - 布尔值
+- `ID` - 约定唯一的字符串
+
+其中 ID 表示一个不会重复的值，项目中我们可以使用`uuid`来生成。
+
+下面是返回所有基本类型的示例：
+
+```js
+var { v4: uuidv4 } = require('uuid');
+
+const typeDefs = gql`
+  type Query {
+    userID: ID
+    hello: String
+    numberOfAnimals: Int
+    price: Float
+    isCool: Boolean
+  }
+`;
+// 获取数据
+const resolvers = {
+  Query: {
+    userID: () => uuidv4(),
+    hello: () => {
+      return 'world';
+    },
+    numberOfAnimals: () => {
+      return 100;
+    },
+    price: () => {
+      return 3.1415926;
+    },
+    isCool: () => false,
+  },
+};
 ```
 
-## 基本类型
-
-基本类型有`String`、`Int`、`Float`、`Boolean` 和 `ID`，这些类型在`buildSchema`中可以直接使用。
-
-其中 ID 表示一个不会重复的值，下面的例子中使用`uuid`来生成。
+### 非空声明
 
 默认情况下，每个类型都是可以为空的——这表示所有标量类型都可以返回 null。
 
 如果不想为空则可以用一个感叹号表示一个类型不可为空，例如：`String!`表示非空字符串。
 
-如果是列表类型，使用方括号将对应类型包起来，如 `[Int]` 就表示一个整数列表。
+### 列表类型
+
+如果是列表类型，使用方括号将对应类型包起来，如 `[String]` 就表示一个字符串列表。
 
 ```js
-var { v4: uuidv4 } = require('uuid');
+const typeDefs = gql`
+  type Query {
+    friends: [String!]
+  }
+`;
+```
 
-var schema = buildSchema(`
-type Query{
-    name:String,
-    age:Int,
-    isMarried:Boolean,
-    hobbies:[String!],
-    id:ID
-}
-`);
+上面的例子表示`friends`可以是 `null`或者是数组项不为`null`的数组。
 
-var rootValue = {
-  name() {
-    return 'this is name';
-  },
-  age() {
-    return 123;
-  },
-  isMarried() {
-    return false;
-  },
-  hobbies() {
-    return ['吃饭', '睡觉'];
-  },
-  id() {
-    return uuidv4();
+### 对象类型
+
+如果我们想要回传的数据是对象类型，那么我们需要在`gql`中声明对象类型
+
+```scheme
+const typeDefs = gql`
+  type Query {
+    products: [Product!]!
+  }
+
+  type Product {
+  	id:ID!
+    name: String!
+    description: String!
+    quantity: Int!
+    price: Float!
+    onSale: Boolean!
+  }
+`
+```
+
+上面示例中`Product`就是对象类型。当`query`查询`products`时，会返回一个不为`null`的数组，数组项是`Product`类型且不能为`null`。
+
+下面是我们定义的`Product`类型的 `resolvers`实现：
+
+```js
+const database = {
+  products: [
+    {
+      id: '1',
+      name: 'Bike',
+      description: 'Mountain Bike',
+      quantity: 20,
+      price: 999.99,
+      onSale: false,
+    },
+    {
+      id: '2',
+      name: 'Car',
+      description: 'little Car',
+      quantity: 10,
+      price: 99999.99,
+      onSale: true,
+    },
+  ],
+};
+
+const resolvers = {
+  Query: {
+    products: () => {
+      return database.products;
+    },
   },
 };
 ```
 
-## 传递参数
+使用`graphql playground`的查询也非常简单：
 
-服务端 `schema`这样写：
+![image-20220604000309321](../assets/image-20220604000309321.png)
+
+需要什么就在 `query` 语句中输入什么即可返回想要的数据。
+
+### 传递参数
+
+上面的例子中，我们已经能够将所有`products`查询出来了，但是如果我想要某一款`product`数据怎么办呢？
+
+我们需要传递参数给服务端，让服务端根据这个参数来查询出对应的数据，开发中经常使用的参数就是 `id`。
+
+我们首先定义`typeDefs`:
 
 ```js
-var schema = buildSchema(`
-type Query{
-    rollDice(numDice: Int!, numSides: Int): [Int]
-}
-`);
-var rootValue = {
-  rollDice({ numDice, numSides }) {
-    let result = [];
-    for (let i = 0; i < numDice; i++) {
-      result.push(Math.floor(1 + Math.random() * numSides));
-    }
-    return result;
+const typeDefs = gql`
+  type Query {
+    products: [Product!]!
+    product(id: ID!): Product
+  }
+
+  type Product {
+    id: ID!
+    name: String!
+    description: String!
+    quantity: Int!
+    price: Float!
+    onSale: Boolean!
+  }
+```
+
+上面的`product(id: ID!): Product`表示我们需要根据`id`来查询出某一款`Product`类型的数据，有可能会为`null`，所以我们不加`!`。
+
+此时我们需要在`resolvers`中将实现`schema`，将数据返回出去。
+
+这种情况下当`graphql`调用我们`resolver`函数时，会给我们传递三个值：
+
+- **parent**
+- **args** - 表示查询时传递过来的参数
+- **context**
+
+那么我们就可以通过`args`获取到前端传递过来的查询参数，所以对应的`resolvers`实现是这样的：
+
+```js
+const resolvers = {
+  Query: {
+    products: () => {
+      return database.products;
+    },
+    product: (parent, args, context) => {
+      console.log(args); // args就是前端传递过来的参数
+      const productId = args.id;
+      return database.products.find(product => product.id === productId);
+    },
   },
 };
 ```
 
-**需要注意的点是`rootValue.rollDice`方法只接受一个参数，我们对应`schema`中的语句，**
+在`playground`中测试时，我们一般会通过`Variables`的方式进行传递
 
-```javascript
-rollDice(numDice: Int!, numSides: Int): [Int]
-```
+![image-20220604005110551](../assets/image-20220604005110551.png)
 
-**需要将查询的参数给解构出来。**
+`$productId`是表示一个变量标识，在前端使用`productId`查询，`graphql`会将它传递给`schema`中定义的`id`。
 
-```javascript
-rollDice({ numDice, numSides }){}
-```
+### 一对多连接
 
-前端通过`GraphQL`查询：
+现在我们已经可以查询所有`products`以及根据`id`查询具体哪个`product`了。
 
-```js
-{
-  rollDice((numSides: 6), (numDice: 3));
-}
-```
+整个过程有点类似单表查询，但实际开发中还有多表查询。
 
-通过代码查询，使用`$`来定义查询中的变量，并将变量作为单独映射来传递。
-
-## 对象类型
-
-现在我们把`name`、`age`、`hobbies`等都封装成一个对象类型，让很多地方可以通过查询 `user`来获取数据：
+比如，现在还有一个品类的数据，会对`product`进行分类，数据是这样的：
 
 ```js
-var schema = buildSchema(`
-type User{
-    name:String,
-    age:Int,
-    isMarried:Boolean,
-    hobbies:[String!],
-    id:ID,
-}
-type Query{
-    user:User
-}
-`);
-var rootValue = {
-  user() {
-    return {
-      name: rootValue.name, // 可以写函数方法，会自动调用
-      age: rootValue.age,
-      isMarried: rootValue.isMarried,
-      hobbies: rootValue.hobbies(), // 也可以直接返回函数调用后的数据
-      id: rootValue.id(),
-    };
-  },
-  name() {
-    return 'this is name';
-  },
-  age() {
-    return 123;
-  },
-  isMarried() {
-    return false;
-  },
-  hobbies() {
-    return ['吃饭', '睡觉'];
-  },
-  id() {
-    return uuidv4();
-  },
+const database = {
+  products: [
+    {
+      id: '1',
+      name: 'Bike',
+      description: 'Mountain Bike',
+      quantity: 20,
+      price: 999.99,
+      onSale: false,
+      categoryId: '1',
+    },
+    {
+      id: '2',
+      name: 'Car',
+      description: 'little Car',
+      quantity: 10,
+      price: 999.99,
+      onSale: true,
+      categoryId: '2',
+    },
+  ],
+  categories: [
+    { id: '1', name: 'Bike' },
+    { id: '2', name: 'Car' },
+  ],
 };
 ```
 
-这时候在前端`graphql`查询：
+现在，我们的`product`多了一个属性`categoryId`是对应`categories`中`id`,表示这个产品是属于这个品类下的，他们之间用`categoryId`表示关系。
 
-```js
-{
-  user {
+接下来更新一下的`type`
+
+```diff
+const typeDefs = gql`
+  type Query {
+    products: [Product!]!
+    product(id: ID!): Product
++   categories: [Category!]!
++ 	category(id: ID!): Category
+  }
++ type Category {
++   name: String!
++   id: ID!
++ }
+  type Product {
+    id: ID!
+    name: String!
+    description: String!
+    quantity: Int!
+    price: Float!
+    onSale: Boolean!
++   categoryId: ID!
+  }
+`
+```
+
+以及`resolvers`:
+
+```diff
+const resolvers = {
+  Query: {
+    products: () => {
+      return database.products
+    },
+    product: (parent, args, context) => {
+      console.log(parent)
+      console.log(args)
+      const productId = args.id
+      console.log(context)
+      return database.products.find(product => product.id === productId)
+    },
++    categories: () => {
++     return database.categories
++    },
++    category: (parent, args, context) => {
++      const { id } = args
++      return database.categories.find(category => category.id === id)
++    },
+  },
+}
+```
+
+目前我们的功能是能够根据 `id` 查到是哪个`category`以及`categories`数据了。
+
+但是还没有实现根据`category`来查询出对应的`product`
+
+倒推一下前端传递的写法，应该是这样的：
+
+```scheme
+query($categoryId: ID!){
+  category(id: $categoryId) {
     id
     name
-    isMarried
-    hobbies
-    age
-  }
-}
-
-/*
-{
-  "data": {
-    "user": {
-      "id": "a57fcb5d-1a32-4ac6-a047-818d1af3c54b",
-      "name": "this is name",
-      "isMarried": false,
-      "hobbies": [
-        "吃饭",
-        "睡觉"
-      ],
-      "age": 123
+    products {
+      name
+      id
+      categoryId
+      description
     }
   }
 }
-*/
 ```
 
-官方示例中的结合 class 实现是这样的：
+我们应该通过 `categoryId` 查具体哪一个`category`,然后再使用`categoryId`对`products`进行筛选。
 
-比如现在要获取一个骰子，在后端的`Query`是这样写的：
+为了实现这一目标，需要更新一下`Category`的 `type`:
+
+```diff
+  type Category {
+    name: String!
+    id: ID!
++   products: [Product!]!
+  }
+```
+
+其次，必须在`resolvers`中再声明一个与`Query`同级的`Category`
 
 ```js
-type RandomDie {
-    numSides: Int!
-    rollOnce: Int!
-    roll(numRolls: Int!): [Int]
-  }
-type Query{
-    getDie(numSides: Int): RandomDie,
-}
-```
-
-然后定义一个`RandomDie`的类
-
-```js
-class RandomDie {
-  numSides: number;
-  constructor(numSides) {
-    this.numSides = numSides;
-  }
-
-  rollOnce() {
-    return 1 + Math.floor(Math.random() * this.numSides);
-  }
-
-  roll({ numRolls }) {
-    var output = [];
-    for (var i = 0; i < numRolls; i++) {
-      output.push(this.rollOnce());
-    }
-    return output;
-  }
-}
-```
-
-然后在`rootValue`中返回这个类的实例，也就是对象
-
-```js
-var rootValue = {
-  getDie: ({ numSides }) => {
-    return new RandomDie(numSides || 6);
+const resolvers = {
+  Query: {...
   },
-};
-```
-
-此时可以通过`client`的`GraphQL`来查询：
-
-```js
-{
-  getDie{
-    roll(numRolls:3)
-    numSides
-    rollOnce
-  }
-}
-```
-
-当对一个返回对象类型的 API 发出 GraphQL 查询时，可以通过嵌套 GraphQL 字段名来一次性调用对象上的多个方法。
-
-这种方式的好处是将相同类别的查询封装到一个 class 中，适合于面向类思维的编程方式。
-
-## 变更和输入类型
-
-如果对数据进行修改，比如插入或者更新操作，这时候需要使用`Mutation`类型而不是`Query`
-
-比如现在要添加一个信息和查询一个信息，分别对应的`schema`是这样的：
-
-```js
-type Mutation {
-  setMessage(message: String): String
-}
-
-type Query {
-  getMessage: String
-}
-```
-
-`mutation`会返回数据库所存的数据
-
-例如，我把信息都存到一个变量里，最后返回出去的`rootValue`需要这么写：
-
-```javascript
-var fakeDatabase = {};
-var root = {
-  setMessage: ({ message }) => {
-    fakeDatabase.message = message;
-    return message;
-  },
-  getMessage: () => {
-    return fakeDatabase.message;
-  },
-};
-```
-
-前端根据上面的配置需要使用`mutation`来发送：
-
-```javascript
-mutation{
-  setMessage(message:"这是前端发送的数据")
-}
-/*
-{
-  "data": {
-    "setMessage": "这是前端发送的数据"
-  }
-}
-*/
-```
-
-不过很多时候后端都会接受多个输入，但是输出是一致的。比如当 create 时，会判断前端有没有发送 id，如果没有则会新建一条消息，如果有则会更新与 id 相匹配的数据，最后返回给前端的都是同样的数据类型，这时候就要用输入类型来简化 `schema`，使用`input`关键字来定义输入：
-
-```javascript
-input MessageInput {
-  content: String
-  author: String
-}
-```
-
-然后定义新增、更新和删除的`schema`
-
-```javascript
-type Message {
-  id: ID!
-  content: String
-  author: String
-}
-
-type DeleteStatus{
-    success:Boolean
-}
-type Mutation {
-    createMessage(createInput:messageInput):Message
-    updateMessage(id:ID!,updateInput: messageInput): Message
-    deleteMessage(id:ID!):DeleteStatus
-}
-type Query {
-    getMessage(id:ID!): Message
-}
-```
-
-在 `rootValue` 中，我们都返回一个 `class`作为输出
-
-```javascript
-let dataBase: any = {
-  '1': {
-    content: '初始数据库的内容',
-    author: 'qiuyanxi',
-  },
-};
-// 如果 Message 拥有复杂字段，我们把它们放在这个对象里面。
-class Message {
-  id: string;
-  content: string;
-  author: string;
-  constructor(id, { content, author }) {
-    this.id = id;
-    this.content = content;
-    this.author = author;
-  }
-}
-
-var rootValue = {
-  getMessage({ id }) {
-    return new Message(id, dataBase[id]);
-  },
-  createMessage({ createInput }) {
-    let id = uuidv4();
-    dataBase.id = createInput;
-    return new Message(id, createInput);
-  },
-  updateMessage({ id, updateInput }) {
-    dataBase[id] = updateInput;
-    return new Message(id, updateInput);
-  },
-  deleteMessage({ id }) {
-    if (!dataBase[id]) {
-      return { success: false };
-    }
-    delete dataBase[id];
-    return { success: true };
-  },
-};
-```
-
-最后我们在`GraphQL`浏览器端使用`mutation`进行查询
-
-```javascript
-mutation {
-  createMessage(createInput: {author: "qiuyanxi", content: "这是内容"}) {
-    id
-    author
-    content
-  }
-  updateMessage(id: "1", updateInput: {author: "qiuyanxi", content: "这是另一个内容"}) {
-    author
-    content
-  }
-  deleteMessage(id:"1") {
-    success
-  }
-}
-
-
-/*
-{
-  "data": {
-    "createMessage": {
-      "id": "5ab856bf-da39-4afd-8b6a-7c8ebee8c4e3",
-      "author": "qiuyanxi",
-      "content": "这是内容"
+  Category: {
+    products: (parent, args, context) => {
+      const { id } = parent
+      return database.products.filter(product => product.id === id)
     },
-    "updateMessage": {
-      "author": "qiuyanxi",
-      "content": "这是另一个内容"
-    },
-    "deleteMessage": {
-      "success": true
-    }
+  },
+}
+```
+
+这里的 `parent`中取出来的`id`就是通过前端传递的`categoryId`查询到的`category`的`id`。
+
+- `parent`表示父级拿到的数据。
+
+- `args`表示本级传递过来的参数
+
+现在我们已经能够实现根据`category`查询对应的`product`了。
+
+![2022-06-04.012647](../assets/2022-06-04.012647.png)
+
+通过 `product` 查询对应的 `category`也是同样的思路，我们首选需要更新`Product`类型：
+
+```diff
+  type Product {
+    id: ID!
+    name: String!
+    description: String!
+    quantity: Int!
+    price: Float!
+    onSale: Boolean!
+    categoryId: ID!
++   category: Category!
   }
-}
-*/
 ```
 
-## 客户端携带参数请求
-
-上面的案例中，客户端发送`query`请求并携带参数查询信息是这样写的：
+接着更新`resolvers`:
 
 ```js
-async function request() {
-  const id = '1';
-  const res = await fetch('http://localhost:4000/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
+  // 与 Query是同级的
+  Product: {
+    category: (parent, args, context) => {
+      const { categoryId } = parent
+      return database.categories.find(category => category.id === categoryId)
     },
-    body: JSON.stringify({
-      query: `
-            {
-              getMessage(id:${id}){
-                id
-                content
-                author
-              }
-            }
-            `,
-    }),
-  });
-  await res.json().then(data => console.log(data));
-}
+  },
 ```
 
-更加符合开发要求的写法是带上服务器中写的类型：
+通过 `parent` 属性我们能够取到查询到的的`product`的数据。然后从里面拿出`categoryId`,最后找到对应的`category`数据。
 
-```js
-          body: JSON.stringify({
-            query: `
-            query GetMessage($id:ID!){
-              getMessage(id:$id){
-                id
-                content
-                author
-              }
-            }
-            `,
-            variables: {
-              id,
-            },
-          }),
-```
+以下是前端查询：
 
-通过`$id`来作为 GraphQL 的变量，然后它的类型就是服务端 `GraphQL`服务端的类型`ID!`，最后通过`variables`将声明好的变量给传递进去。
+![image-20220604225329329](../assets/image-20220604225329329.png)
 
-对应`createMessage`的客户端查询是这么写的
+### 多对多连接
 
-```js
-          body: JSON.stringify({
-            query: `
-            mutation CreateMessage($createInput:MessageInput){
-              createMessage(createInput:$createInput){
-                id
-                content
-                author
-              }
-            }
-            `,
-            variables: {
-              createInput: {
-                content: '内容',
-                author: 'qyx',
-              },
-            },
-          }),
-```
+我们已经完成了从`product`查询`categray`以及从`categray`查询到对应的`product`了。
 
-客户端开发中，不可能去看服务端的代码，所以一般都会按照`GraphQL`的客户端 doc 来写对应的类型。
+接下去就可以实现查询`products`时让每个`product`都能显示`categray`,以及查询`categories`时让每个`category`都能查到对应的`products`。
 
-![image-20220417132914867](../assets/image-20220417132914867.png)
+即多对多的连接。
+
+事实上，由于我们已经完成了`product`到`category`以及`category`到`product`的逻辑，此时`graphql`已经帮我们做好了多对多的连接了，以下是查询示例：
+
+**查询`categories`时找出所有对应的`products`**
+
+![image-20220604230459527](../assets/image-20220604230459527.png)
+
+**查询`products`时找出所有对应的`category`**
+
+![image-20220604230732613](../assets/image-20220604230732613.png)
