@@ -32,4 +32,5 @@ export default defineConfig({
   menus: {
     ...componentsMenu,
   },
+  styles: ['https://cdnjs.cloudflare.com/ajax/libs/antd/4.20.7/antd.min.css'],
 });

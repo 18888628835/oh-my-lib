@@ -1,7 +1,3 @@
----
-toc: menu
----
-
 # GraphQL
 
 ## Apollo-server
