@@ -21,12 +21,9 @@ export default defineConfig({
   },
   apiParser: {
     propFilter: {
-      // 是否忽略从 node_modules 继承的属性，默认值为 false
-      skipNodeModules: true,
-      // 需要忽略的属性名列表，默认为空数组
-      skipPropsWithName: [],
-      // 是否忽略没有文档说明的属性，默认值为 false
-      skipPropsWithoutDoc: false,
+      skipNodeModules: true, // 是否忽略从 node_modules 继承的属性，默认值为 false
+      skipPropsWithName: [], // 需要忽略的属性名列表，默认为空数组
+      skipPropsWithoutDoc: false, // 是否忽略没有文档说明的属性，默认值为 false
     },
   },
   exportStatic: {},
