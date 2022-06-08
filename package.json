@@ -13,7 +13,7 @@
     "test:coverage": "umi-test --coverage",
     "commit": "cz"
   },
-  "homepage": "https://18888628835.github.io/oh-my-lib/",
+  "homepage": "https://qiuyanxi.com",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "typings": "dist/index.d.ts",
