@@ -6,8 +6,10 @@ const repo = 'oh-my-lib';
 
 export default defineConfig({
   title: repo,
-  favicon: `/${repo}/lightbulb.png`,
-  logo: `/${repo}/lightbulb.png`,
+  // favicon: `/${repo}/lightbulb.png`,
+  // logo: `/${repo}/lightbulb.png`,
+  favicon: `/lightbulb.png`,
+  logo: `/lightbulb.png`,
   outputPath: 'docs-dist',
   mode: 'site',
   hash: true,
