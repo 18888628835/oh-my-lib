@@ -5,13 +5,14 @@ const nav = [
       { title: 'CSS', path: '/css' },
       { title: 'JavaScript', path: '/javascript' },
       { title: '浏览器', path: '/浏览器' },
+      { title: '设计模式', path: '/design-pattern' },
       { title: 'HTTP', path: '/http' },
       { title: 'Node', path: '/node' },
       { title: 'Flutter', path: '/flutter' },
     ],
   },
   {
-    title: '杂项',
+    title: '扩展',
     path: '/其他',
     children: [
       { title: '前端可视化', path: '/其他/前端可视化' },

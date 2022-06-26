@@ -1,0 +1,374 @@
+---
+order: 1
+---
+
+# 第一章 面向对象的 JavaScript
+
+JavaScript 没有提供传统面向对象语言中的类继承，而是通过原型委托的方式来实现对象之间的继承。
+
+正是因为存在跟传统面向对象语言不一致的地方，我们在学习设计模式之前，需要了解 JavaScript 在面向对象方面的知识。
+
+## 1.1 动态类型
+
+编程语言按照数据类型大体可以分为两类，一类是静态类型语言，另一类是动态类型语言。
+
+静态类型语言在编译时便已确定变量的类型，而动态类型语言的变量类型要到程序运行的时候，待变量被赋予某个值之后，才会具有某种类型。
+
+**以下是静态类型语言的优缺点**
+
+**优点**
+
+- 在编译时就能发现类型不匹配的错误
+- 如果在程序中明确地规定了数据类型，编译器还可以针对这些信息对程序进行一些优化工作，提高程序执行速度
+
+**缺点**
+
+- 迫使程序员按照契约来书写代码，为每个变量都规定数据类型，归根结底只是辅助我们编写可靠程序的手段，而不是目的。
+- 类型的声明也会增加更多的代码，让程序员的精力从思考业务逻辑上分散开来
+
+相对于静态类型的语言，**动态类型语言也存在以下优缺点**：
+
+**优点**
+
+- 编写代码少，看起来更简洁
+- 程序员可以把精力更多地放在业务逻辑上
+
+**缺点**
+
+- 无法保证变量的类型，从而导致运行时可能发生类型错误
+
+动态语言对变量类型的宽容给实际编码带来了很大的灵活性。由于无需类型检测，所以我们可以更关注对象的行为而非对象本身。
+
+对于静态类型语言来说，想要实现基于鸭子类型（duck typing）的面向接口编程，需要对抽象类进行向上转型，形成一个超类。
+
+而动态语言则不必借助超类型的帮助。
+
+> 鸭子类型通俗解释：如果它走起路来像鸭子，叫起来也是鸭子，那么它就是鸭子。
+
+## 1.2 多态
+
+多态的含义是，同一操作作用于不同的对象时，可以产生不同的解释和不同的效果。
+
+比如说，Number 和 Object 的原型上都有`toString`方法，这就是多态的。
+
+用一个实际的例子举例，比如有一只鸭子和一只狗，它们都能够叫，但是他们的叫声并不相同。下面用代码来说明
+
+```javascript
+function Dog() {}
+function Duck() {}
+function sound(animal) {
+  if (animal instanceof Dog) {
+    alert('汪汪汪');
+  }
+  if (animal instanceof Duck) {
+    alert('嘎嘎嘎');
+  }
+}
+sound(new Dog());
+sound(new Duck());
+```
+
+上面的代码就体现了多态性，即相同的操作作用于不同对象，可以产生不同的效果。
+
+但是这样并不能令人满意，因为如果多加几种动物，那么 sound 方法就需要写更多的兼容代码，显得非常冗余。
+
+**多态背后的思想是将`做什么`和`谁去做以及怎样做`隔离开来，具体做法就是将不变的隔离起来，可变的就封装起来，给予程序扩展的能力**
+
+首先我们把不变的部分隔离出来，那就是所有的动物都会发出叫声：
+
+```javascript
+function Dog() {}
+
+function Duck() {}
+
+function sound(animal) {
+  animal.sound();
+}
+```
+
+然后把可变的部分各自封装起来
+
+```javascript
+Dog.prototype.sound = function() {
+  alert('汪汪汪');
+};
+Duck.prototype.sound = function() {
+  alert('嘎嘎嘎');
+};
+```
+
+现在这些动物的原型上都有`sound`方法,我们直接这样调用即可：
+
+```javascript
+sound(new Duck());
+sound(new Dog());
+```
+
+未来如果需要更多动物，直接增加可变部分的代码就可以了，这段代码可扩展性强，而且非常安全。
+
+## 1.3 封装
+
+封装的目的是将信息隐藏。
+
+封装不仅包括封装实现、封装数据，还包括封装类型和封装变化。
+
+### 封装数据
+
+```javascript
+var myObject = (function() {
+  var __name = 'sven'; //私有（private）变量
+  return {
+    getName: function() {
+      //公开（public）方法
+      return __name;
+    },
+  };
+})();
+
+console.log(myObject.getName()); //输出：sven
+console.log(myObject.__name); //输出：undefined
+```
+
+上面的代码通过函数来将创建作用域，并封装一个私有变量的数据。这是数据层面的封装
+
+### 封装实现
+
+封装应该被视为任何形式的封装，也就是说，封装不仅仅是隐藏数据，还包括隐藏实现细节、设计细节以及隐藏对象的类型等。
+
+封装使得对象内部的变化对其他对象而言是透明的，也就是不可见的。对象对他自己的行为负责。其他对象或者用户都不关心它的内部实现。
+
+封装使得对象之间的耦合变得松散，对象之间只通过暴露的 API 来通信。当我们修改一个对象时，可以随意地修改它的内部实现，只要对外的接口没有变化，就不会影响到程序的其他功能。
+
+比如：我们写了一个`each`函数，它的作用时遍历一个聚合对象，使用这个`each`函数的人不用关心它的内部是如何实现的，只要它提供的功能正确就可以了。即使修改了内部源代码，只要对外的接口或者调用方式没有变化，用户就不用关心它的内部实现的改变。
+
+### 封装类型
+
+封装类型是静态类型语言中的一种重要封装方式。一般而言，封装类型是通过抽象类和接口来进行的。
+
+JavaScript 目前没有能力，也没必要做得更多。
+
+### 封装变化
+
+从设计模式的角度出发，封装在更重要的层面体现为封装变化。
+
+> 考虑你的设计中哪些地方可能变化，这种方式会与关注会导致重新设计的原因相反。它不是考虑什么时候会迫使你的设计改变，而是考虑你怎样才能在不重新设计的情况下进行改变。这里的关键在于封装发生变化的概念，这是许多设计模式的主题。——设计模式
+
+通过封装变化的方式，把系统中稳定不变的部分和容易变化的部分隔离开来，在系统的演变中，我们只需要替换那些容易发生变化的部分，如果这些部分是已经封装好的，那么替换起来也相对容易。这可以最大程度地保证程序的稳定性和可扩展性。
+
+## 1.4 原型模式和基于原型继承的 JavaScript 对象系统
+
+在以类为中心的面向对象编程语言中，只能从类创建一个对象。
+
+但在原型编程思想中，类并不是必须的，对象也未必需要从类中创建而来，一个对象是通过克隆另外一个对象所得到的。
+
+原型模式不单单是一种设计模式，也被称为编程泛型。
+
+### 1.4.1 使用克隆的原型模式
+
+从设计模式的角度讲，原型模式是用于创建对象的一种模式。创建一个对象，有两种方法：
+
+- 一先指定它的类型，然后通过类来创建这个对象。
+- 原型模式选择了另外一种方式，我们不再关心对象的具体类型，而是找到一个对象，然后通过克隆来创建一个一模一样的对象。
+
+原型模式的实现关键，在于语言本身是否提供了 clone 方法，ES5 提供了`Object.create`这个 API 来克隆对象，比如下面的代码
+
+```javascript
+var Plane = function() {
+  this.blood = 100;
+  this.attackLevel = 1;
+  this.defenseLevel = 1;
+};
+
+var plane = new Plane();
+plane.blood = 500;
+plane.attackLevel = 10;
+plane.defenseLevel = 7;
+
+var clonePlane = Object.create(plane);
+console.log(clonePlane);
+console.log(clonePlane.blood); //输出500
+console.log(clonePlane.attackLevel); //输出10
+console.log(clonePlane.defenseLevel); //输出7
+```
+
+> Object.create(targetObject)会新创建一个对象，并把 targetObject 的属性和方法与新创建对象的`__proto__`做连接。
+
+### 1.4.2 克隆是创建对象的手段
+
+原型模式的真正目的并非在于要创建一个一模一样的对象，而是提供了一种便捷的方式去创建某个类型的对象，克隆只是创建这个对象的过程和手段。
+
+在 JavaScript 这种类型模糊的语言中，创建对象非常容易，也不像 java 存在类型耦合的问题。从设计模式的角度来讲，原型模式的意义并不算大。但 JavaScript 本身是基于原型的面向对象语言。它的对象系统就是使用原型模式来搭建的，在这里称之为原型编程泛型也许更合适。
+
+### 1.4.4 原型编程范型的一些规则
+
+基于原型链的委托机制就是原型继承的本质。
+
+原型编程的重要特性：**当某个对象无法响应某个请求时，会把该请求委托给它自己的原型。**
+
+原型编程至少包含以下规则：
+
+- 所有数据都是对象
+- 要得到一个对象，不是通过实例化类，而是找到一个对象作为原型并克隆它
+  - 对象会记住它的原型
+  - 如果对象无法响应某个请求，它会把这个请求委托给它自己的原型
+
+### 1.4.5 JavaScript 中的原型继承
+
+1. 所有数据都是对象
+
+   按照 JavaScript 设计者的本意，除了 undefined 之外，一切都应是对象。为了实现这一目标，number、boolean、string 这几种基本类型数据也可以通过“包装类”的方式变成对象类型数据来处理。
+
+   JavaScript 绝大多数数据都是对象，JavaScript 中也有一个根对象`Object.prototype`，这些对象都来自于这个根对象。
+
+   我们遇到的每个对象，实际上都是从`Object.prototype`中克隆而来。`Object.prototype`就是它们的原型。
+
+   比如下面两个对象
+
+   ```javascript
+   let obj = new Object();
+   let obj2 = {};
+   // 通过Object.getPrototypeOf()这个方法获取原型
+   Object.getPrototypeOf(obj) === Object.prototype; // true
+   Object.getPrototypeOf(obj2) === Object.prototype; // true
+   ```
+
+2) 要得到一个对象，不是通过实例化类，而是找到一个对象作为原型并克隆它
+
+   在 JavaScript 中，我们并不需要关心克隆的细节，这是引擎内部实现的。比如下面的代码
+
+   ```javascript
+   const obj = {};
+   const obj2 = new Object();
+   ```
+
+   我们只需要显式地调用它，引擎就会从`object.prototype`中克隆一个对象出来。
+
+   下面我们使用 new 来构造一个对象
+
+   ```javascript
+   function Person(name) {
+     this.name = name;
+   }
+   Person.prototype.getName = function() {
+     return this.name;
+   };
+
+   var a = new Person('qiuyanxi');
+   console.log(a.getName()); // 'qiuyanxi'
+   console.log(Object.getPrototypeOf(a) === Person.prototype); // true
+   ```
+
+   在这里 Person 并不是类，而是一个构造器，JavaScript 的函数既可以作为普通函数调用，又可以用来当作构造器。当使用 new 运算符来调用函数时，此时函数是一个构造器。用 new 运算符来创建对象的过程，实际上也只是克隆`Object.prototype`,再进行一些额外的操作。
+
+   下面是模拟一个 new 运算符
+
+   ```javascript
+   function myNew(constructorFunc, ...rest) {
+     const obj = {}; // 从Object.prototype中克隆一个对象
+     obj.__proto__ = constructorFunc.prototype; //把克隆下的对象的__proto__与构造器的原型做连接
+     const result = constructorFunc.apply(obj, rest); // 调用构造器函数，this与object绑定
+     return typeof result === 'object' ? result : obj; //需要确保返回出一个对象，这是规范
+   }
+   ```
+
+3. 对象会记住它的原型
+
+   如果请求可以在一个链条中依次往后传递，那么每个节点都必须知道它的下一个节点。
+
+   就 JavaScript 真正的实现来说，并不能直接说对象有原型，而是它的构造器有原型。对于对象把请求委托给它自己的原型这句话，更好的说法是对象把请求委托给它的构造器的原型。
+
+   对象如何把请求顺利地转交给它的构造器的原型呢？
+
+   JavaScript 给对象提供了一个名为`__prototype__`的隐藏属性，这个属性会默认指向它的构造器的原型对象，即`{Constructor}.prototype`。
+
+   `__proto__`就是对象跟“对象构造器的原型”联系起来的纽带。正因为对象要通过`__proto__`属性来记住它的构造器的原型。
+
+4) 如果对象无法响应某个请求，它会把这个请求委托给它自己的原型
+
+   这条规则是原型继承的精髓所在。
+
+   虽然 JavaScript 的对象最初都是由`Object.prototype`克隆而来，但对象构造器的原型并不限于`Object.prototype`，而是动态地指向其他对象。这样一来，当对象 a 需要借用对象 b 的能力时，可以有选择地把对象 a 的构造器的原型指向对象 b，从而达到继承的效果。
+
+   ```javascript
+   var obj = {
+     name: 'qiuyanxi',
+   };
+   var A = function() {};
+   A.prototype = obj; // 将函数的原型指向obj
+   var a = new A(); // 构造器A构造对象a
+   console.log(a.name); // a通过.__proto__ 访问到A.prototype
+   ```
+
+   这段代码是这样做的：
+
+   - 遍历对象 a 的所有属性，但是没用找到`name`属性
+   - 查找`name`属性这个请求委托给对象 a 的构造器 A 的原型，也就是 A.prototype
+   - `A.prototype`被设置成 obj，所以返回`obj`的 name
+
+   当我们希望一个“类”（实际上是构造器）继承另一个类时，往往会用下面的代码来模拟
+
+   ```javascript
+   var A = function() {};
+   A.prototype = { name: 'qiuyanxi' };
+
+   var B = function() {};
+   B.prototype = new A();
+   // B.prototype =Object.create(A.prototype) 也可以用这个方法
+   var b = new B();
+   console.log(b.name); // "qiuyanxi"
+   ```
+
+   这段代码是这样做的：
+
+   - 让 B 的原型等于 A 的实例，这样 B 的原型就可以通过`__proto__`访问到 A 的原型
+   - 当 b 需要访问 name 时，遍历 b 身上的属性发现没有，于是请求委托顺着`__proto__`去访问构造器 B 的原型
+   - 此时`B.prototype`是个空对象，于是继续顺着`__proto__`去访问构造器 A 的原型
+   - `A.prototype`身上具有 name 属性，于是返回它的值
+
+原型链并不是无限长的，根对象`Object.prototype.__proto__`是`null`,说明原型链后面已经没有节点了。
+
+如果请求委托在根对象上依然找不到属性，最终会返回`undefined`
+
+### 1.4.6 原型继承的未来
+
+除了根对象`Object.prototype`外，任何对象都会有一个原型。而通过 Object.create( null )可以创建出没有原型的对象。
+
+`Object.create()`是原型模式的天然实现。
+
+ES6 带来了新的 class 语法，让 JavaScript 看起来像一门基于类的语言，但其背后依然是基于原型机制创建对象。
+
+以下是简单的代码示例
+
+```javascript
+class Animal {
+  constructor(name) {
+    this.name = name;
+  }
+  getName() {
+    return this.name;
+  }
+}
+class Dog extends Animal {
+  constructor(name) {
+    super(name);
+  }
+  speak() {
+    return 'jimi';
+  }
+}
+var dog = new Dog('jimi');
+
+console.log(dog.getName() === dog.speak()); // true
+```
+
+### 1.4.7 小结
+
+原型模式是一种设计模式，也是一种编程泛型。它构成了 JavaScript 这门语言的根本。
+
+原型模式在于克隆，克隆是便捷创建对象的一种手段。
+
+原始的克隆是直接按照根对象`Object.prototype`来克隆出一个新的对象，新对象的`__proto__`属性会访问到它的原型，即根对象。
+
+JavaScript 中的原型还可以根据构造函数来指定原型，通过请求委托的方式来实现原型的继承，每个请求都会通过对象的`__proto__`属性委托给它的原型处理，形成一个原型链条。
+
+原型链条并不是无限长的，它的终点指向 null，表示链表节点的结束。
