@@ -4,6 +4,7 @@ const nav = [
     children: [
       { title: 'CSS', path: '/css' },
       { title: 'JavaScript', path: '/javascript' },
+      { title: 'Document', path: '/document' },
       { title: '浏览器', path: '/浏览器' },
       { title: '设计模式', path: '/design-pattern' },
       { title: 'HTTP', path: '/http' },

@@ -53,7 +53,7 @@ JavaScript 没有提供传统面向对象语言中的类继承，而是通过原
 
 用一个实际的例子举例，比如有一只鸭子和一只狗，它们都能够叫，但是他们的叫声并不相同。下面用代码来说明
 
-```javascript
+```js
 function Dog() {}
 function Duck() {}
 function sound(animal) {
@@ -76,7 +76,7 @@ sound(new Duck());
 
 首先我们把不变的部分隔离出来，那就是所有的动物都会发出叫声：
 
-```javascript
+```js
 function Dog() {}
 
 function Duck() {}
@@ -88,7 +88,7 @@ function sound(animal) {
 
 然后把可变的部分各自封装起来
 
-```javascript
+```js
 Dog.prototype.sound = function() {
   alert('汪汪汪');
 };
@@ -99,7 +99,7 @@ Duck.prototype.sound = function() {
 
 现在这些动物的原型上都有`sound`方法,我们直接这样调用即可：
 
-```javascript
+```js
 sound(new Duck());
 sound(new Dog());
 ```
@@ -114,7 +114,7 @@ sound(new Dog());
 
 ### 封装数据
 
-```javascript
+```js
 var myObject = (function() {
   var __name = 'sven'; //私有（private）变量
   return {
@@ -172,7 +172,7 @@ JavaScript 目前没有能力，也没必要做得更多。
 
 原型模式的实现关键，在于语言本身是否提供了 clone 方法，ES5 提供了`Object.create`这个 API 来克隆对象，比如下面的代码
 
-```javascript
+```js
 var Plane = function() {
   this.blood = 100;
   this.attackLevel = 1;
@@ -224,7 +224,7 @@ console.log(clonePlane.defenseLevel); //输出7
 
    比如下面两个对象
 
-   ```javascript
+   ```js
    let obj = new Object();
    let obj2 = {};
    // 通过Object.getPrototypeOf()这个方法获取原型
@@ -236,7 +236,7 @@ console.log(clonePlane.defenseLevel); //输出7
 
    在 JavaScript 中，我们并不需要关心克隆的细节，这是引擎内部实现的。比如下面的代码
 
-   ```javascript
+   ```js
    const obj = {};
    const obj2 = new Object();
    ```
@@ -245,7 +245,7 @@ console.log(clonePlane.defenseLevel); //输出7
 
    下面我们使用 new 来构造一个对象
 
-   ```javascript
+   ```js
    function Person(name) {
      this.name = name;
    }
@@ -262,7 +262,7 @@ console.log(clonePlane.defenseLevel); //输出7
 
    下面是模拟一个 new 运算符
 
-   ```javascript
+   ```js
    function myNew(constructorFunc, ...rest) {
      const obj = {}; // 从Object.prototype中克隆一个对象
      obj.__proto__ = constructorFunc.prototype; //把克隆下的对象的__proto__与构造器的原型做连接
@@ -289,7 +289,7 @@ console.log(clonePlane.defenseLevel); //输出7
 
    虽然 JavaScript 的对象最初都是由`Object.prototype`克隆而来，但对象构造器的原型并不限于`Object.prototype`，而是动态地指向其他对象。这样一来，当对象 a 需要借用对象 b 的能力时，可以有选择地把对象 a 的构造器的原型指向对象 b，从而达到继承的效果。
 
-   ```javascript
+   ```js
    var obj = {
      name: 'qiuyanxi',
    };
@@ -307,7 +307,7 @@ console.log(clonePlane.defenseLevel); //输出7
 
    当我们希望一个“类”（实际上是构造器）继承另一个类时，往往会用下面的代码来模拟
 
-   ```javascript
+   ```js
    var A = function() {};
    A.prototype = { name: 'qiuyanxi' };
 
@@ -339,7 +339,7 @@ ES6 带来了新的 class 语法，让 JavaScript 看起来像一门基于类的
 
 以下是简单的代码示例
 
-```javascript
+```js
 class Animal {
   constructor(name) {
     this.name = name;
