@@ -5,7 +5,7 @@ const nav = [
       { title: 'CSS', path: '/css' },
       { title: 'JavaScript', path: '/javascript' },
       { title: 'Document', path: '/document' },
-      { title: '浏览器', path: '/浏览器' },
+      { title: '浏览器', path: '/browser' },
       { title: '设计模式', path: '/design-pattern' },
       { title: 'HTTP', path: '/http' },
       { title: 'Node', path: '/node' },
@@ -26,6 +26,7 @@ const nav = [
       { title: 'GraphQL', path: '/其他/graphql' },
     ],
   },
+  { title: 'AWS', path: '/aws' },
   { title: '组件', path: '/components' },
   {
     title: 'package',
