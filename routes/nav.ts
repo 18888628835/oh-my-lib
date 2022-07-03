@@ -27,6 +27,11 @@ const nav = [
     ],
   },
   { title: 'AWS', path: '/aws' },
+  {
+    title: 'English',
+    path: '/english',
+    children: [{ title: '初级语法', path: '/english/初级语法' }],
+  },
   { title: '组件', path: '/components' },
   {
     title: 'package',
