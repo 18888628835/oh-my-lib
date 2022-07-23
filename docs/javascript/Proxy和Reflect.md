@@ -805,6 +805,74 @@ proxy.name; // Error
 
   此处我们使用 `WeakMap` 而不是 `Map`，因为它不会阻止垃圾回收。如果一个代理对象变得“不可访问”（例如，没有变量再引用它），则 `WeakMap` 允许将其与它的 `revoke` 一起从内存中清除，因为我们不再需要它了。
 
+## Proxy 在开发中的应用
+
+1. 访问 array[-1]
+
+   JavaScript 不支持通过负值索引来访问数组元素，但是很多语言都实现了：
+
+   ```js
+   let array = [1, 2, 3];
+   array[-1]; // 3
+   array[-2]; // 2
+   array[-3]; // 1
+   ```
+
+   我们也可以通过代理来实现这个功能：
+
+   ```js
+   let array = [1, 2, 3];
+
+   array = new Proxy(array, {
+     get(target, prop, receiver) {
+       if (parseInt(prop) < 0) {
+         prop = target.length + parseInt(prop);
+       }
+       console.log(prop);
+
+       return Reflect.get(target, prop, receiver);
+     },
+   });
+
+   alert(array[-1]); // 3
+   alert(array[-2]); // 2
+   ```
+
+2. 实现可观察的 Observer
+
+   创建一个`makeObservable(target)`，这个函数可以返回一个代理使得对象可以被观察
+
+   ```js
+   let user = {};
+   user = makeObservable(user);
+
+   user.observe((key, value) => {
+     alert(`SET ${key}=${value}`);
+   });
+   user.observe((key, value) => {
+     console.log(`SET ${key}=${value} `);
+   });
+
+   user.name = 'John'; // alerts: SET name=John  log: SET name=John
+   ```
+
+   ```js
+   function makeObservable(target) {
+     let observes = [];
+     target.observe = function(observeFn) {
+       observes.push(observeFn);
+     };
+     return new Proxy(target, {
+       set(target, prop, value, receiver) {
+         for (let observe of observes) {
+           observe(prop, value);
+         }
+         return Reflect.set(target, prop, value, receiver);
+       },
+     });
+   }
+   ```
+
 ## 总结
 
 `Proxy`是对象的包装器，将代理上的操作转发到对象，并且能够捕获到底层的一些操作。
