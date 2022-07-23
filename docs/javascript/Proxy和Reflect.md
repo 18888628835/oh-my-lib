@@ -622,5 +622,217 @@ console.log(admin.name); // 得到正确的答案了：admin
 `Proxy`可以在底层修改或者调整现有对象的某些行为，但并不是全部。
 
 - 内建对象：内部插槽（Internal slot）
+
+  许多内建对象，例如 `Map`，`Set`，`Date`，`Promise` 等，都使用了所谓的“内部插槽”。
+
+  它们类似于属性，但仅限于内部使用，仅用于规范目的。例如，`Map` 将项目（item）存储在 `[[MapData]]` 中。内建方法可以直接访问它们，而不通过 `[[Get]]/[[Set]]` 内部方法。所以 `Proxy` 无法拦截它们。
+
+  类似这样的内建对象被代理后，由于代理对象没有这些内部插槽，因此内建方法会调用失败。
+
+  ```js
+  let map = new Map();
+
+  let proxy = new Proxy(map, {});
+
+  proxy.set('test', 1); // Error
+  ```
+
+  在内部，一个`Map`将所有数据都存在`[[MapData]]`内部插槽中。代理对象没有这样的插槽。内建方法`Map.prototype.set`方法试图访问内部属性`this.[[MapData]]`，但由于`this=proxy`，在`proxy`中无法找到它，因此上面的代码会失败。
+
+  这儿有一种解决方法：
+
+  ```js
+  let map = new Map();
+
+  let proxy = new Proxy(map, {
+    get(target, prop, receiver) {
+      let value = Reflect.get(...arguments);
+      return typeof value == 'function' ? value.bind(target) : value;
+    },
+  });
+
+  proxy.set('test', 1);
+  alert(proxy.get('test')); // 1（工作了！）
+  ```
+
+  现在它正常工作了，因为 `get` 捕捉器将函数属性（例如 `map.set`）绑定到了目标对象（`map`）本身。
+
+  与前面的示例不同，`proxy.set(...)` 内部 `this` 的值并不是 `proxy`，而是原始的 `map`。因此，当`set` 捕捉器的内部实现尝试访问 `this.[[MapData]]` 内部插槽时，它会成功。
+
 - 私有字段
--
+
+  类的私有字段也会发生类似的情况。
+
+  例如，`getName()` 方法访问私有的 `#name` 属性，并在代理后中断（break）：
+
+  ```js
+  class User {
+    #name = 'Guest';
+
+    getName() {
+      return this.#name;
+    }
+  }
+
+  let user = new User();
+
+  user = new Proxy(user, {});
+
+  alert(user.getName()); // Error
+  ```
+
+  原因是私有字段是通过内部插槽实现的。JavaScript 在访问它们时不使用 `[[Get]]/[[Set]]`。
+
+  在调用 `getName()` 时，`this` 的值是代理后的 `user`，它没有带有私有字段的插槽。
+
+  再次，带有 `bind` 方法的解决方案使它恢复正常：
+
+  ```js
+  class User {
+    #name = 'Guest';
+
+    getName() {
+      return this.#name;
+    }
+  }
+
+  let user = new User();
+
+  user = new Proxy(user, {
+    get(target, prop, receiver) {
+      let value = Reflect.get(...arguments);
+      return typeof value == 'function' ? value.bind(target) : value;
+    },
+  });
+
+  alert(user.getName()); // Guest
+  ```
+
+  使用 `bind` 的解决方案也有缺点：它将原始对象暴露给该方法，可能使其进一步传递并破坏其他代理功能。
+
+- ### Proxy != target
+
+  代理和原始对象是不同的对象。
+
+  如果我们使用原始对象作为键，然后对其进行代理，之后却无法找到代理了：
+
+  ```js
+  let allUsers = new Set();
+
+  class User {
+    constructor(name) {
+      this.name = name;
+      allUsers.add(this);
+    }
+  }
+
+  let user = new User('John');
+
+  alert(allUsers.has(user)); // true
+
+  user = new Proxy(user, {});
+
+  alert(allUsers.has(user)); // false
+  ```
+
+  如我们所见，进行代理后，我们在 `allUsers` 中找不到 `user`，因为代理是一个不同的对象。
+
+- 无法拦截===相等性检查
+
+  Proxy 可以拦截许多操作符，例如 `new`（使用 `construct`），`in`（使用 `has`），`delete`（使用 `deleteProperty`）等。
+
+  但是没有办法拦截对于对象的严格相等性检查。一个对象只严格等于其自身，没有其他值。
+
+## 可撤销的 Proxy
+
+一个可撤销的代理是可以被禁用的代理。
+
+比如，我们现在想关闭对资源的访问。我们可以包装成一个可撤销的代理，没有任何捕捉器。这样的代理会将操作转发给对象，并且我们可以随时禁用。
+
+```js
+let { proxy, revoke } = Proxy.revocable(target, handler);
+```
+
+第一步，定义原始对象
+
+```js
+let user = { name: 'qiuyanxi' };
+```
+
+第二步，包装成可撤销的代理
+
+```js
+let { proxy, revoke } = Proxy.revocable(user, {});
+```
+
+第三步，想要撤销时调用`revoke`
+
+```js
+proxy.name; // 'qiuyanxi'
+revoke(); // 撤销代理
+proxy.name; // Error
+```
+
+对 `revoke()` 的调用会从代理中删除对目标对象的所有内部引用，因此它们之间再无连接。
+
+由于 `proxy` 和 `revoke` 是分开的，因此我们可以传递 `proxy`，而不传递 `revoke`。
+
+如果我们希望能保存`revoke`，有两种方式：
+
+- 保存在 `proxy` 中
+
+  使用`proxy.revoke = revoke`将`revoke`绑定到`proxy`中
+
+- 创建一个`WeakMap`,用`proxy`作为键，`revoke`作为值
+
+  ```js
+  let revokes = new WeakMap();
+
+  let object = {
+    data: 'Valuable data',
+  };
+
+  let { proxy, revoke } = Proxy.revocable(object, {});
+
+  revokes.set(proxy, revoke);
+
+  // ...我们代码中的其他位置...
+  revoke = revokes.get(proxy);
+  revoke();
+
+  alert(proxy.data); // Error（revoked）
+  ```
+
+  此处我们使用 `WeakMap` 而不是 `Map`，因为它不会阻止垃圾回收。如果一个代理对象变得“不可访问”（例如，没有变量再引用它），则 `WeakMap` 允许将其与它的 `revoke` 一起从内存中清除，因为我们不再需要它了。
+
+## 总结
+
+`Proxy`是对象的包装器，将代理上的操作转发到对象，并且能够捕获到底层的一些操作。
+
+它可以包装任何类型的对象，包括类和函数。语法为：
+
+```js
+let proxy = new Proxy(target, {
+  /* trap */
+});
+```
+
+我们可以捕获：
+
+- 读取（get）
+- 写入（set）
+- 删除（deleteProperty）
+- 函数调用（apply）
+- new 操作（construct）
+- ...
+
+这使我们能够创建“虚拟”属性和方法，实现默认值，可观察对象，函数装饰器等。
+
+`Reflect`是用来补充`Proxy`的，每个`proxy`捕捉器都有相同参数的`Reflect`调用，我们应该用它将调用转发给目标对象。
+
+Proxy 的局限：
+
+- 内建对象具有“内部插槽”，对这些对象的访问无法被代理。请参阅上文中的解决方法。
+- 私有类字段的问题同“内部插槽”，因为它们也是用内部插槽实现的。因此，也必须用目标对象作为 this
+- 对象的严格性检查`===`无法被拦截
+- 性能：proxy 的属性拦截使得最简单的代理访问属性所需的时间都会延长几倍。但大多数情况下都是可接受的。
