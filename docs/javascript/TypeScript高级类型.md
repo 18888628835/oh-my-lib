@@ -611,6 +611,153 @@ type toRecord<K extends string | number | symbol, V> = {
 
 ## 内置的高级类型
 
+### Parameters
+
+`parameters`用于提取函数的参数类型。
+
+源码是这样的：
+
+```js
+type Parameters<T extends (...args: any) => any>
+    = T extends (...args: infer P) => any
+        ? P
+        : never;
+```
+
+解释一下：
+
+1. parameters 的类型参数`T`通过`extends`约束为函数，参数和返回值是`any`
+2. 通过 extends 匹配一个模式，通过 infer 来提取出 args 的类型并赋值给 P
+
+### ReturnType
+
+ReturnType 是提取函数类型的返回值类型。
+
+源码如下：
+
+```js
+type ReturnType<T extends (...args: any) => any>
+    = T extends (...args: any) => infer R
+        ? R
+        : any;
+```
+
+跟`Parameters`类似，返回值`R`的类型被 `infer` 提取出来，如果匹配成功则将返回值的类型给返回出来。
+
+### ConstructorParameters
+
+构造器类型和函数类型的区别就是可以被 new。
+
+Parameters 用于提取函数参数的类型，而 ConstructorParameters 用于提取构造器参数的类型。
+
+源码如下：
+
+```js
+type ConstructorParameters<
+    T extends abstract new (...args: any) => any
+> = T extends abstract new (...args: infer P) => any
+    ? P
+    : never;
+```
+
+类型参数 T 是待处理的类型，通过 extends 约束为构造器类型，加个 abstract 代表不能直接被实例化（其实不加也行）。
+
+用 T 匹配一个模式类型，提取参数的部分到 infer 声明的局部变量 P 里，返回 P。
+
+这样就实现了构造器参数类型的提取。
+
+### InstanceType
+
+`InstanceType`用来提取构造器返回值的类型。
+
+源码是这样的：
+
+```js
+type InstanceType<
+    T extends abstract new (...args: any) => any
+> = T extends abstract new (...args: any) => infer R
+    ? R
+    : any;
+```
+
+整体和 ConstructorParameters 差不多，只不过提取的不再是参数了，而是返回值。
+
+### ThisParameterType
+
+函数里面可以调用`this`，这个`this`的类型也可以约束：
+
+![image-20220731200647277](../assets/image-20220731200647277.png)
+
+如果想要提取出 this 出来，自然也是可以的。
+
+```js
+const person = { name: 'qiuyanxi' };
+function sayHi(this: typeof person) {
+  console.log(this.name);
+}
+type ThisRes = ThisParameterType<typeof sayHi>;
+```
+
+![image-20220731200832180](../assets/image-20220731200832180.png)
+
+源码如下：
+
+```js
+type ThisParameterType<T> = T extends (this: infer U, ...args: any[]) => any
+  ? U
+  : unknown;
+```
+
+用 T 匹配一个模式类型，提取 this 的类型到 infer 声明的局部变量 U 里返回。
+
+### OmitThisParameter
+
+如果我们希望删除`this`的类型，可以使用`OmitThisParameter`
+
+![image-20220731201310966](../assets/image-20220731201310966.png)
+
+### Partial
+
+Partial 的源码是这样的：
+
+```js
+type Partial<T> = {
+    [P in keyof T]?: T[P];
+};
+```
+
+跟我们实现的差不多，本质上就是用 `in`遍历映射类型，值则使用索引访问，最后加上`?`就构造出一个全部可选的新类型了。
+
+### Required
+
+源码跟 `Partial`类似，就是把所有`?`都删掉
+
+```js
+type Required<T> = {
+    [P in keyof T]-?: T[P];
+};
+```
+
+### Readonly
+
+源码类似同上：
+
+```js
+type Readonly<T> = {
+    readonly [P in keyof T]: T[P];
+};
+```
+
+### Pick
+
+使用映射类型的语法，在构造新的索引类型时，过滤出一些想要的属性：
+
+```js
+type Pick<T, K extends keyof T> = {
+    [P in K]: T[P];
+};
+```
+
 ### Record
 
 TypeScript 内置了高级类型 Record 来创建索引类型，它的源码是这样的：
@@ -653,3 +800,78 @@ const cats: Record<CatName, CatInfo> = {
   mordred: { age: 16, breed: 'British Shorthair' },
 };
 ```
+
+### Exclude
+
+当我们想要从一个联合类型中去掉一部分类型时，可以使用`Exclude`类型：
+
+![image-20220731203611081](../assets/image-20220731203611081.png)
+
+源码：
+
+```js
+type Exclude<T, U> = T extends U ? never : T
+```
+
+解释一下：如果传入的 T 与 U 能够匹配上过滤掉 U 的类型，剩下的类型组成联合类型。也就是取差集。
+
+### Extract
+
+跟 `Exclude` 的作用相反，`Extract`的作用是取交集。
+
+![image-20220731204220059](../assets/image-20220731204220059.png)
+
+源码：
+
+```js
+type Extract<T, U> = T extends U ? T : never
+```
+
+### Omit
+
+`Pick`可以提取出索引类型的一部分来构造出新的索引类型。
+
+`Omit`是相反的,它会将在构造新的索引类型时删除掉一部分。
+
+```js
+type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
+```
+
+![image-20220731204634533](../assets/image-20220731204634533.png)
+
+### Awaited
+
+`Awaited`关键字可以返回 Promise 的返回值
+
+```js
+const func = Promise.resolve().then(() => 123);
+type FuncReturnType = Awaited<typeof func>; // number
+```
+
+### NonNullable
+
+NonNullable 就是用于判断是否为非空类型，也就是不是 null 或者 undefined 的类型的，实现比较简单:
+
+```js
+type NonNullable<T> = T extends null | undefined ? never : T;
+```
+
+当传入的是 null 或者 undefined 时会返回 never 类型，否则就返回其他类型：
+
+![image-20220731210609008](../assets/image-20220731210609008.png)
+
+### Uppercase
+
+字符串大写
+
+### Lowercase
+
+字符串小写
+
+### Capitalize
+
+首字母大写
+
+### Uncapitalize
+
+去掉首字母大写
