@@ -10,6 +10,7 @@ const nav = [
       { title: 'HTTP', path: '/http' },
       { title: 'Node', path: '/node' },
       { title: 'Flutter', path: '/flutter' },
+      { title: 'Vue3原理', path: '/vue3' },
     ],
   },
   {
