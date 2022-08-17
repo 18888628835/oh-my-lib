@@ -92,7 +92,11 @@ div.textContent = 'hello vue3';
 
 所以虚拟 DOM 要解决的问题就是让我们写声明式代码的情况下，保证应用程序的下限，并且想办法逼近命令式代码的性能。
 
-以下是 InnerHTML、虚拟 DOM、纯 DOM 操作方法在创建 `DOM` 时的性能差异：
+但为什么用虚拟 DOM 而不用 innerHTML 方案呢？
+
+### 虚拟 DOM 与 innerHTML 的比较
+
+下面就可以比较一下 InnerHTML 与虚拟 DOM 之间的性能差异：
 
 - **InnerHTML 性能消耗**
 
@@ -117,10 +121,151 @@ div.textContent = 'hello vue3';
   1. 创建 JavaScript 对象，这个对象可以理解为真实 DOM 的描述。
   2. 递归遍历虚拟 DOM 并创建真实 DOM。
 
-  用一个公式来表达虚拟 DOM 的性能：**创建 JavaScript 对象的计算量+创建真实 DOM 的计算量**
+  用一个公式来表达虚拟 DOM 的性能：\*\*创建 JavaScript 对象的计算量+创建真实 DOM 的计算量
 
-- **纯 `JavaScript` 性能消耗**
+|                 | 虚拟 DOM             | innerHTML         |
+| --------------- | -------------------- | ----------------- |
+| JavaScript 运算 | 创建 JavaScript 对象 | 渲染 HTML 字符串  |
+| DOM 运算        | 新建所有 DOM 元素    | 新建所有 DOM 元素 |
 
-  纯 JavaScript 就是采用现代 DOM 操作的方法，例如使用 `createElement`等 API 来直接创建 DOM 元素。
+在新建元素时，虚拟 DOM 跟 innerHTML 的性能消耗可能差不多。
 
-  那它的性能公式为：**创建真实 DOM 的计算量**
+但是如果是更新页面，情况就不一样了：
+
+|                 | 虚拟 DOM                      | innerHTML        |
+| --------------- | ----------------------------- | ---------------- |
+| JavaScript 运算 | 创建新的 JavaScript 对象+Diff | 渲染 HTML 字符串 |
+| DOM 运算        | 必要的 DOM 更新               | 销毁旧的 DOM     |
+|                 |                               | 新建新的 DOM     |
+
+使用 innerHTML 更新页面的过程是重新构建 HTML 字符串，再重新设置 DOM 元素的 html 属性。换句话说，即使改了一个字，也需要重新设置 innerHTML。所以它的性能消耗就是先销毁旧的 DOM 以及全量新建新的 DOM。
+
+使用虚拟 DOM 需要新建虚拟 DOM 树，再比较新旧 DOM 树之间的差异，找出变化的元素，最后更新 DOM。
+
+也就是说更新页面时虚拟 DOM 只比创建时多了一层 Diff，而且这是 JavaScript 层面的运算，比起 innerHTML 的全量更新，虚拟 DOM 的性能更加有优势。
+
+最后，当更新页面时，影响虚拟 DOM 的性能因素与影响 innerHTML 的性能因素不同。对于虚拟 DOM 来说，无论页面多大，都只会更新变化的内容。对于 innerHTML 来说，页面越大，就意味着更新时性能消耗越大。
+
+|                 | 虚拟 DOM                      | innerHTML        |
+| --------------- | ----------------------------- | ---------------- |
+| JavaScript 运算 | 创建新的 JavaScript 对象+Diff | 渲染 HTML 字符串 |
+| DOM 运算        | 必要的 DOM 更新               | 销毁旧的 DOM     |
+|                 |                               | 新建新的 DOM     |
+| 性能因素        | 与数据变化量相关              | 与模板大小相关   |
+
+因此，简单总结如下：
+
+性能层面：原生 JavaScript > 虚拟 DOM > innerHTML
+
+维护层面：虚拟 DOM > innerHTML > 原生 JavaScript
+
+## 1.4 运行时和编译时
+
+### 运行时
+
+纯运行时的框架是这样的：我们希望将虚拟 DOM（实际上就是 JavaScript 对象）渲染到页面上，那作为框架开发者，我会规定一套数据结构，然后提供一个 Render 函数，用户根据数据结构创建一个 JavaScript 对象，传到 Render 函数中，这样就能够达到渲染页面的效果。
+
+比如我们规定的数据结构如下：
+
+```js
+const obj = {
+  tag: 'div',
+  children: [{ tag: 'span', children: 'hello world' }],
+};
+```
+
+然后我们写一个 Render 函数
+
+```js
+function Render(vNode, root) {
+  const el = document.createElement(vNode.tag);
+  if (typeof vNode.children === 'string') {
+    el.textContent = vNode.children;
+  } else if (vNode.children) {
+    vNode.children.forEach(child => {
+      Render(child, el);
+    });
+  }
+  root.append(el);
+}
+```
+
+最后让用户调用：
+
+```js
+Render(obj, document.querySelector('#root'));
+```
+
+上面的代码最终会在页面上渲染出 `hello world`
+
+### 运行时+编译时
+
+纯运行时的方法会让用户提供一个巨大的树形结构对象。有没有一种方法？比如使用编译的手段简化它呢？
+
+比如
+
+```html
+<div>
+  <span>hello world</span>
+</div>
+```
+
+最终被编译成
+
+```js
+const obj = {
+  tag: 'div',
+  children: [{ tag: 'span', children: 'hello world' }],
+};
+```
+
+为此，框架开发者需要写一个 `Compiler`函数，它的作用就是将字符串转化成 JavaScript 对象
+
+```js
+const html = `
+<div>
+	<span>hello world</span>
+</div>
+`;
+const vNode = Compiler(html);
+```
+
+最终给 Render 函数调用
+
+```js
+Render(vNode);
+```
+
+这时，这就是编译时+运行时的框架
+
+### 编译时
+
+还有一种编译时，它就是把 Render 函数去掉，直接将用户写的字符串转化成命令式代码：
+
+```js
+const html = `
+<div>
+	<span>hello world</span>
+</div>
+`;
+```
+
+上面的代码会转化成
+
+```js
+const div = document.createElement('div');
+const span = document.createElement('span');
+span.innerText = 'hello world';
+div.appendChild(span);
+document.body.appendChild(div);
+```
+
+## 1.5 总结
+
+1. 命令式的范式注重过程，声明式的则注重结果
+2. 命令式的代码理论上性能是最好的，但是需要付出很多精力和开发心智
+3. 声明式的框架需要做到尽可能地使性能损耗到最低
+4. 虚拟 DOM 的性能公式：更新性能消耗 = 找出差异的性能消耗 + 直接修改的性能消耗
+5. 虚拟 DOM、innerHTML、原生 JavaScript 操作 DOM，三种方法在创建页面、更新页面时的性能是不一样的，在判断性能差异时还需要考虑页面大小、变更大小等因素
+6. 总体来说，虚拟 DOM 的可维护性比原生 JavaScript 更强，性能优于 innerHTML。
+7. 运行时、编译时以及运行时+编译时的框架有不同的特点
