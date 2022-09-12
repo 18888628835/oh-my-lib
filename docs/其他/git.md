@@ -219,7 +219,7 @@ git branch --set-upstream-to=origin/[remote branch]  本地分支跟远程分支
 修改 message
 
 ```bash
-git commit --amend  修改最新分支的message
+git commit --amend --message 'xxxx' 修改最新分支的message
 git rebase -i xxx commit字符串xxx  修改历史分支的message 需要pick r 命令后修改
 git rebase -I XX commit字符串xxx 合并多次提交到一次 需要pick s 命令后修改
 ```
