@@ -704,7 +704,7 @@ Maximum call stack size exceeded
 
 于是上面代码就在不断自己收集和自己执行中进入了无限递归循环。
 
-解决的方法是在 trigger 动作发生时增加守卫条件：如果 trigger 触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行。
+通过分析可以发现，收集时的 effectFn 是 activeEffect，触发时的 effectFn 也是 activeEffect。所以解决的方法是在 trigger 动作发生时增加守卫条件：如果 trigger 触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行。
 
 ```js
 function trigger(target, key) {
@@ -724,3 +724,197 @@ function trigger(target, key) {
   // effects && effects.forEach((effectFn) => effectFn());
 }
 ```
+
+## 1.7 调度执行
+
+可调度指的是当 trigger 动作触发副作用函数重新执行时，有能力决定副作用函数执行的时机、次数和方式。
+
+比如以下代码：
+
+```js
+effect(function effectFn1() {
+  console.log(obj.foo);
+});
+
+obj.foo = false;
+console.log('结束了');
+```
+
+执行结果：
+
+```bash
+true
+false
+结束了
+```
+
+现在我们需要增加调度器，在不调整代码的情况下让代码的执行顺序变为：
+
+```bash
+true
+结束了
+false
+```
+
+为了实现这个需求，我们需要让响应系统支持调度。
+
+可以给 effect 函数设计一个选项参数 options，允许用户指定调度器。
+
+```js
+effect(
+  () => {
+    console.log(obj.foo);
+  },
+  // options
+  {
+    scheduler(fn) {
+      //...
+    },
+  },
+);
+```
+
+如上所述，用户在调用 effect 注册副作用函数时，可以通过第二个参数 options 来指定 scheduler。同时在 effect 函数内部我们需要将 options 选项挂载到对应的副作用函数上。
+
+```js
+function effect(fn, options) {
+  const effectFn = () => {
+    cleanup(effectFn);
+    activeEffect = effectFn;
+    effectStack.push(effectFn);
+    fn();
+    // 当 effectFn 执行时，将其设置为当前激活的副作用函数
+    effectStack.pop();
+    activeEffect = effectStack[effectStack.length - 1];
+  };
+  // activeEffect.deps用来存储所有与该副作用函数相关联的依赖集合
+  effectFn.deps = [];
+  // 将 options 挂载到 effectFn 上
+  effectFn.options = options;
+  effectFn();
+}
+```
+
+有了调度函数，我们在 trigger 函数中触发副作用函数重新执行时，可以调用用户传入的调度器函数，从而把控制权交给用户：
+
+```js
+function trigger(target, key) {
+  // 根据 target 从桶里取出 depsMap
+  const depsMap = bucket.get(target);
+  if (!depsMap) return;
+  // 再根据 key 从 depsMap 中取得注册的所有副作用函数列表
+  const effects = depsMap.get(key);
+  const newEffects = new Set();
+  effects.forEach(effectFn => {
+    // 如果 trigger 触发执行的副作用函数与当前执行的副作用函数相同，则不触发执行
+    if (effectFn !== activeEffect) {
+      newEffects.add(effectFn);
+    }
+  });
+  newEffects.forEach(effectFn => {
+    // 如果副作用函数中存在 options.scheduler，则调用该函数。并将 effectFn 作为参数传递
+    if (effectFn.options.scheduler) {
+      // 新增
+      effectFn.options.scheduler(effectFn); // 新增
+    } else {
+      effectFn(); // 新增
+    }
+  });
+}
+```
+
+如上述代码所示，在 trigger 函数执行副作用函数时，我们优先判断该副作用函数中是否存在调度器，如果存在，则直接调用调度器，并将 effectFn 作为参数传递进去；如果不存在，则直接执行该副作用函数。
+
+现在我们的代码已经支持自定义调用顺序了：
+
+```js
+effect(() => console.log(obj.foo), {
+  scheduler(fn) {
+    setTimeout(fn);
+  },
+});
+obj.foo = false;
+console.log('结束了');
+```
+
+结果为：
+
+```js
+true;
+结束了;
+false;
+```
+
+除了控制顺序外，还能通过调度器做到控制它的次数。比如以下例子：
+
+```js
+let data = { foo: 1 };
+const obj = new Proxy(data,{...})
+effect(()=>{console.log(obj.foo)})
+obj.foo++
+obj.foo++
+```
+
+打印的结果是：
+
+```js
+1;
+2;
+3;
+```
+
+由输出结果可以看到，obj.foo 最终会从 1 变成 3,2 只是它的过渡状态。如果我们只关心最终结果而不关心过程，那么执行三次打印是多余的，我们希望能够跳过第二次，直接从 1 变成 3：
+
+```js
+1;
+3;
+```
+
+基于调度器，我们可以完成此功能，思路如下：
+
+```js
+// 定义一个任务队列
+const jobQueue = new Set();
+// 创建一个 promise 实例，通过它将任务添加到微任务队列中，异步执行
+const p = Promise.resolve();
+// 一个标志，用来表示队列是否正在刷新队列
+let isFlushing = false;
+function flushJob() {
+  // 如果队列正在刷新，则什么都不做
+  if (isFlushing) return;
+  // 设置为 true，表示正在刷新
+  isFlushing = true;
+  // 在微任务队列中刷新 jobQueue 队列
+  p.then(() => jobQueue.forEach(job => job())).finally(() => {
+    // 结束后重置 isFlushing
+    isFlushing = false;
+  });
+}
+
+effect(() => console.log(obj.foo), {
+  scheduler(fn) {
+    // 每次调度时，将副作用函数添加到 jobQueue 队列中
+    jobQueue.add(fn);
+    // 调用 flushJob 刷新队列
+    flushJob();
+  },
+});
+obj.foo++;
+obj.foo++;
+```
+
+整段代码的效果如下：
+
+1. 执行第一个 `obj.foo++`时，触发调度器，将 effectFn 的任务添加到 `jobQueue` 的任务队列中，并刷新队列
+2. 此时`flushJob` 会将 `isFlushing` 设置为 `true`，代表正在刷新队列，然后 `p.then`会将遍历队列的操作放到微任务队列中
+3. 继续执行`obj.foo++`，继续触发调度器，将 effectFn 的任务添加到 `jobQueue` 的任务队列中。由于`jobQueue` 是一个`Set`数据结构，具有自动去重的能力，所以 `jobQueue` 始终只有一个副作用函数，即当前副作用函数。
+4. flushJob 也会执行两次，但由于`isFlushing`的存在，实际上 `flushJob`在一个事件循环过程中只执行了一次，即在微任务队列中执行一次。
+5. 当微任务队列开始执行时，就会遍历 `jobQueue` 中储存的副作用函数。由于 `jobQueue` 中只有一个副作用函数，所以只会执行一次。当它执行时，obj.foo 的值已经变成 `3` 了
+
+上面的代码需要注意的细节有三点：
+
+1. 巧妙利用 Set 数据结构自动去重的能力，否则`jobQueue`会遍历多次相同的 `effectFn`
+2. 利用 `isFlushing`标志，确保任务队列在一个周期内只会执行一次。
+3. 通过`p.then`将整个刷新队列的函数放到微任务队列中。
+
+整个功能有点类似于`Vue.js` 中连续修改多次响应式数据但只会更新一次，实际上 `Vue`内部实现了更完善的调度器，思路大体相同。
