@@ -918,3 +918,246 @@ obj.foo++;
 3. 通过`p.then`将整个刷新队列的函数放到微任务队列中。
 
 整个功能有点类似于`Vue.js` 中连续修改多次响应式数据但只会更新一次，实际上 `Vue`内部实现了更完善的调度器，思路大体相同。
+
+## 1.8 计算属性 computed 和 lazy
+
+懒加载的 effect 意味着某些情况下，我们不希望 effect 函数立即执行，而是在它需要的时候才执行。如下面代码所示：
+
+```js
+effect(() => console.log(obj.foo), {
+  // 制定了 lazy 选项，这个函数不会立即执行
+  lazy: true,
+});
+```
+
+有了这个选项，我们可以修改 effect 函数的实现逻辑了。
+
+```diff
+function effect(fn, options={}) {
+  const effectFn = () => {
+    cleanup(effectFn);
+    activeEffect = effectFn;
+    effectStack.push(effectFn);
+    fn();
+    // 当 effectFn 执行时，将其设置为当前激活的副作用函数
+    effectStack.pop();
+    activeEffect = effectStack[effectStack.length - 1];
+  };
+  // activeEffect.deps用来存储所有与该副作用函数相关联的依赖集合
+  effectFn.deps = [];
+  // 将 options 挂载到 effectFn 上
+  effectFn.options = options;
+  // 只有lazy 为假时，才执行 effectFn
++  if (!options.lazy) {
++    effectFn();
++  }
++  return effectFn;
+}
+```
+
+通过判断，我们实现了让副作用函数不立即执行的功能。并且由于返回了 effectFn，所以我们可以拿到返回值，并手动执行该副作用函数。
+
+```js
+const effectFn = effect(() => console.log(obj.foo), {
+  lazy: true,
+});
+
+effectFn();
+```
+
+如果我们把传递给 effect 的函数看做是一个 getter，那么这个 getter 函数可以返回任何值，例如：
+
+```js
+const effectFn = effect(
+  // getter返回 obj.foo和 obj.bar的和
+  () => obj.foo + obj.bar,
+  {
+    lazy: true,
+  },
+);
+const value = effectFn();
+```
+
+为了实现这个目标，我们需要再修改一些 effectFn 的代码
+
+```diff
+function effect(fn, options={}) {
+  const effectFn = () => {
+    cleanup(effectFn);
+    activeEffect = effectFn;
+    effectStack.push(effectFn);
+    // 将 fn 的结果储存在 res 中
++   const res = fn();
+    effectStack.pop();
+    // 当 effectFn 执行时，将其设置为当前激活的副作用函数
+    activeEffect = effectStack[effectStack.length - 1];
++   return res;
+  };
+  // activeEffect.deps用来存储所有与该副作用函数相关联的依赖集合
+  effectFn.deps = [];
+  // 将 options 挂载到 effectFn 上
+  effectFn.options = options;
+  // 只有lazy 为假时，才执行 effectFn
+  if (!options.lazy) {
+    effectFn();
+  }
+  return effectFn;
+}
+```
+
+通过代码我们可以看到，真正的副作用函数 fn 执行后的结果会被保存到 `res` 变量中，然后作为我们包装过的函数 `effectFn`的返回值。
+
+上面我们已经实现了让副作用函数懒执行，并且能够拿到副作用函数的执行结果了。下面继续实现计算属性：
+
+```js
+function computed(getter) {
+  const effectFn = effect(getter, {
+    lazy: true,
+  });
+  const obj = {
+    get value() {
+      return effectFn();
+    },
+  };
+  return obj;
+}
+```
+
+首先我们定义一个 `computed` 函数,它接收一个 getter 函数作为参数，我们把 getter 函数作为副作用函数，用它创建一个 lazy 的 effect。computed 函数的执行会返回一个对象，该对象的 value 属性是一个访问器属性，只有当读取 value 的值时，才会执行 effectFn 并将其结果作为返回值返回。
+
+我们可以用 computed 函数来创建一个计算属性：
+
+```js
+let data = { foo: 1, bar: 2 };
+// ...省略代码
+const res = computed(() => obj.foo + obj.bar);
+console.log(res.value); //3
+console.log(res.value); //3
+console.log(res.value); //3
+```
+
+当前执行的懒加载函数做到了懒计算，也就是说，只有当我们读取`res.value`时，它才会进行计算并得到值。但是还没做到对值的缓存，即我们多次访问`res.value`的值，会导致 effectFn 进行多次计算，即使 obj.foo 和 obj.bar 的值并没有发生变化。
+
+为了对值做缓存，我们需要修改 computed 函数的代码：
+
+```js
+function computed(getter) {
+  // 保存上一次计算的值
+  let value;
+  // dirty 标志，用来标识是否需要重新计算值，为 true 时表示需要重新计算
+  let dirty = true;
+  const effectFn = effect(getter, {
+    lazy: true,
+  });
+  const obj = {
+    get value() {
+      // 只有 脏 时才计算值，并将得到的值缓存到 value 中
+      if (dirty) {
+        value = effectFn();
+        // 将 dirty 设置为 false，下一次访问直接使用缓存中 value 的值
+        dirty = false;
+      }
+      return value;
+    },
+  };
+  return obj;
+}
+```
+
+上面的代码我们增加了两个变量，一个是用来保存结果的 value， 另一个是代表是否需要重新计算的`dirty` 变量。只有当 dirty 变量为 true 时，才会调用 effectFn 重新计算，否则则返回上次计算缓存的结果。这样无论我们访问多少次 obj.value，都只会在第一次访问时进行真正的计算，后续的访问都会直接返回缓存的 value 值。
+
+然后我们需要补足一个逻辑：当 `obj.foo`或者 `obj.bar` 的值改变时，把 `dirty` 设置为 `true`，让 `computed` 重新计算。
+
+```diff
+function computed(getter) {
+  // 保存上一次计算的值
+  let value;
+  // dirty 标志，用来标识是否需要重新计算值，为 true 时表示需要重新计算
+  let dirty = true;
+  const effectFn = effect(getter, {
+    lazy: true,
+    // 添加调度器，将 dirty 重置为 true
++    scheduler() {
++      dirty = true;
++    }
+  });
+  const obj = {
+    get value() {
+      // 只有 脏 时才计算值，并将得到的值缓存到 value 中
+      if (dirty) {
+        value = effectFn();
+        // 将 dirty 设置为 false，下一次访问直接使用缓存中 value 的值
+        dirty = false;
+      }
+      return value;
+    }
+  };
+  return obj;
+}
+```
+
+我们给 effect 添加了 scheduler 调度器函数，它会在 getter 函数中所依赖的响应式数据变化时执行，这样我们在 scheduler 函数内将 dirty 重置为 false。当下一次访问`res.value`时，就会重新调用 effectFn 计算值。
+
+现在我们设计的计算属性还有一个缺陷，它体现在当我们在另外一个 effect 中读取计算属性的值时：
+
+```js
+const res = computed(() => obj.foo + obj.bar);
+effect(() => {
+  console.log(res.value);
+});
+obj.foo++;
+```
+
+res 是一个计算属性，并且在另外一个 effect 的副作用函数中读取了 `res.value`。如果此时修改了 obj.foo 的值，我们期望副作用函数重新执行。就像 vue 中的 computed 属性发生变化后，会触发重新渲染一样。
+
+但是目前的代码还做不到如此。
+
+分析一下原因：
+
+1. computed 内部拥有自己的 effect，并且它是懒执行的。只有当真正读取计算属性时才会执行。
+2. 对于 getter 函数来说，它里面访问的响应式数据会把 computed 内部的 effect 收集作为依赖。
+3. 当计算属性被用于另外一个 effect 时，就会发生 effect 嵌套。外层的 effect 没有响应式数据收集。
+
+我们可以手动调用 track 函数和 trigger 函数完成响应式数据的收集和触发工作：
+
+```diff
+function computed(getter) {
+  // 保存上一次计算的值
+  let value;
+  // dirty 标志，用来标识是否需要重新计算值，为 true 时表示需要重新计算
+  let dirty = true;
+  const effectFn = effect(getter, {
+    lazy: true,
+    // 添加调度器，将 dirty 重置为 true
+    scheduler() {
+      dirty = true;
++      trigger(obj, "value");
+    }
+  });
+  const obj = {
+    get value() {
+      // 只有 脏 时才计算值，并将得到的值缓存到 value 中
+      if (dirty) {
+        value = effectFn();
++        track(obj, "value");
+        // 将 dirty 设置为 false，下一次访问直接使用缓存中 value 的值
+        dirty = false;
+      }
+      return value;
+    }
+  };
+  return obj;
+}
+```
+
+当读取计算属性时，我们手动调用 track 函数进行收集
+
+当计算属性发生变化时，会触发调度器，此时调用 trigger 函数手动触发响应。
+
+这时会建立这样的响应联系：
+
+```
+computed(obj)
+├─ value
+		├─ effectFn
+```
