@@ -1130,8 +1130,10 @@ function computed(getter) {
     lazy: true,
     // 添加调度器，将 dirty 重置为 true
     scheduler() {
-      dirty = true;
-+      trigger(obj, "value");
++      if (!dirty) {
++        dirty = true;
++        trigger(obj, "value");
++      }
     }
   });
   const obj = {
@@ -1139,10 +1141,10 @@ function computed(getter) {
       // 只有 脏 时才计算值，并将得到的值缓存到 value 中
       if (dirty) {
         value = effectFn();
-+        track(obj, "value");
         // 将 dirty 设置为 false，下一次访问直接使用缓存中 value 的值
         dirty = false;
       }
++      track(obj, "value");
       return value;
     }
   };
@@ -1161,3 +1163,301 @@ computed(obj)
 ├─ value
 		├─ effectFn
 ```
+
+## 1.9 watch 的实现原理
+
+watch 本质上就是观测一个响应式数据，当数据发生变化时通知并执行相应的回调函数。
+
+```js
+watch(obj, () => {
+  console.log('数据变了');
+});
+
+// 当修改响应数据的值，会执行回调函数
+obj.foo++;
+```
+
+假设 obj 是一个响应数据，使用 watch 函数观测它，并传递一个回调函数，当修改响应式数据的值时，会触发该回调函数的执行。
+
+watch 的本质是利用 effect 和 scheduler 选项：
+
+```js
+effect(
+  () => {
+    console.log(obj.foo);
+  },
+  {
+    scheduler() {
+      // 当 obj.foo的值发生变化时，会触发 scheduler 函数的执行
+    },
+  },
+);
+```
+
+当响应式数据发生变化时，会触发副作用函数重新执行。如果 effect 存在 scheduler 选项，则会触发 scheduler 调度执行，而非直接触发副作用函数执行。其实 scheduler 函数就是一个回调函数，通过这一点可以实现 watch。
+
+```js
+function watch(source, callback) {
+  effect(
+    () => {
+      console.log(source.foo);
+    },
+    {
+      scheduler() {
+        // 当 obj.foo的值发生变化时，会触发 scheduler 函数的执行
+        callback();
+      },
+    },
+  );
+}
+```
+
+我们可以这样使用：
+
+```js
+let data = { foo: 1 };
+let obj = new Proxy(data, {...})
+...
+watch(obj, () => {
+  console.log("数据变了");
+});
+
+// 当修改响应数据的值，会执行回调函数
+obj.foo++;
+```
+
+结果为：
+
+```js
+数据变了;
+```
+
+上面的`watch`函数代码内部，我们硬编码了`source.foo`这个读取操作，所以只能对 foo 这个属性进行观测，我们需要一个更加通用的方法：
+
+```js
+function watch(source, callback) {
+  effect(
+    () => {
+      traverse(source);
+    },
+    {
+      scheduler() {
+        // 当 obj.foo的值发生变化时，会触发 scheduler 函数的执行
+        callback();
+      },
+    },
+  );
+}
+
+function traverse(value, seen = new Set()) {
+  // 如果要读取的数据是原始值，或者已经被读取过了，那么什么都不做
+  if (typeof value !== 'object' || value === null || seen.has(value)) return;
+  // 将数据添加到 seen 中，代表遍历地读取过了，避免循环引用引起的死循环
+  seen.add(value);
+  // 不考虑数组等其他数据结构
+  // 假设 value 是一个对象，使用 for..in遍历读取对象的每一个值，并递归调用traverse进行处理
+  for (const k in value) {
+    traverse(value[k], seen);
+  }
+  return value;
+}
+```
+
+上面的代码主要是在 watch 内部的 effect 中调用 traverse 函数进行递归的读取操作，代替硬编码的方式，这样就可以读取到对象上的任意属性，从而当任意属性发生变化时都能够触发回调函数执行。
+
+watch 函数除了可以观测响应式数据外，还可以接收一个 getter 函数
+
+```js
+watch(()=>obj.foo,()=>console.log('obj.foo的值变了')）
+```
+
+传递给 watch 函数的不仅仅可以是一个 source 数据，还可以是一个函数，这个函数内部用户可以指定 watch 依赖哪些响应式数据，只有当这些数据变化时，才会触发回调函数的执行。如下代码可以实现这一个功能：
+
+```js
+function watch(source, callback) {
+  let getter;
+  if (typeof source === 'function') {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+  effect(() => getter(), {
+    scheduler() {
+      // 当 obj.foo的值发生变化时，会触发 scheduler 函数的执行
+      callback();
+    },
+  });
+}
+```
+
+首先我们判断 source 的类型，如果是函数类型，说明用户直接传递 getter 函数，这时直接用用户的 getter 函数，否则则保留之前的做法，即调用 traverse 递归读取。如此就实现了自定义 getter 的功能。
+
+此时，我们最后还需要完成在回调函数中获取新值和旧值的功能。
+
+```js
+watch(
+  () => obj.foo,
+  (newValue, oldValue) => console.log(newValue, oldValue),
+);
+```
+
+如何获取新值和旧值呢？这就需要充分利用 effect 函数 lazy 选项：
+
+```js
+function watch(source, callback) {
+  let getter;
+  if (typeof source === 'function') {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+  let newValue, oldValue;
+  // 开启 lazy 选项，把返回值储存到 effectFn中以便后续调用
+  const effectFn = effect(() => getter(), {
+    lazy: true,
+    scheduler() {
+      // 当 obj.foo的值发生变化时，会触发 scheduler 函数的执行
+      newValue = effectFn();
+      // 将新值和旧值作为回调函数的参数
+      callback(newValue, oldValue);
+      // 更新旧值，不然下一次会得到错误的旧值
+      oldValue = newValue;
+    },
+  });
+  // 手动调用副作用函数，拿到的值就是旧值
+  oldValue = effectFn();
+}
+```
+
+在上面的代码中，核心操作如下：
+
+1. 使用 lazy 选项创建一个懒执行的 effectFn
+2. 手动调用 effectFn 拿到 oldValue，即第一次执行得到的值
+3. 当变化发生并触发 scheduler 调度函数执行时，会重新调用 effectFn 并拿到新值，这样我们就拿到了 newValue 和 oldValue，传递给 callback 就可以了
+4. 用新值更新旧值：`oldValue = newValue;`,否则在下次变更发生时会得到错误的旧值
+
+### 立即执行的 watch 与回调执行时机
+
+watch 本质上是对 effect 的二次封装，这一节就来实现立即执行的回调函数以及回调函数的执行时机。
+
+默认情况下，一个 watch 的回调只会在响应式数据发生变化时才会执行：
+
+```js
+watch(obj, () => {
+  console.log('变化了');
+});
+```
+
+在 vue 中可以通过选项参数 `immediate`来指定回调是否需要立即执行：
+
+```js
+watch(
+  obj,
+  () => {
+    console.log('变化了');
+  },
+  {
+    // 回调函数会在 watch 创建时立即执行一次
+    immediate: true,
+  },
+);
+```
+
+当 immediate 选项存在并且为真时，回调函数会在该 watch 创建时立即执行一次。仔细思考就会发现，回调函数的立即执行与后续执行本质上没有差别，所以我们可以把 scheduler 调度函数封装为一个通用函数，分别在初始化时和变更时执行它。
+
+```js
+function watch(source, callback, options = {}) {
+  let getter;
+  if (typeof source === 'function') {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+  let newValue, oldValue;
+  // 提取出共同的逻辑为 job 函数
+  function job() {
+    // 当 obj.foo的值发生变化时，会触发 scheduler 函数的执行
+    newValue = effectFn();
+    // 将新值和旧值作为回调函数的参数
+    callback(newValue, oldValue);
+    // 更新旧值，不然下一次会得到错误的旧值
+    oldValue = newValue;
+  }
+  const effectFn = effect(() => getter(), {
+    // 开启 lazy 选项，把返回值储存到 effectFn中以便后续调用
+    lazy: true,
+    // 使用 job 函数作为调度器函数
+    scheduler: job,
+  });
+
+  if (options.immediate) {
+    // 当immediate 为真时立即执行 job，从而触发回调执行
+    job();
+  } else {
+    // 手动调用副作用函数，拿到的值就是旧值
+    oldValue = effectFn();
+  }
+}
+```
+
+上面的代码将原先在 scheduler 中获取新值、执行回调、更新旧值的逻辑提取到 job 函数中，并且根据选项中是否存在 immediate 且为真时立即执行 job 函数以触发 callback 回调执行。
+
+除了指定回调函数为立即执行之外，还可以通过其他选项参数来指定回调函数的执行时机，例如在 vue3.js 中可以通过 flush 选项来指定：
+
+```js
+watch(
+  obj,
+  () => {
+    console.log('变化了');
+  },
+  {
+    // 调度函数需要将副作用函数放到微任务队列中，并等待 DOM 更新结束后执行
+    flush: 'post',
+  },
+);
+```
+
+flush 的逻辑跟控制调度执行时控制次数的逻辑差不多，在调度器函数内检测 options.flush 是否为“post”，如果是，则将 job 函数放到微任务队列中，从而实现异步延迟执行的效果。
+
+```js
+function watch(source, callback, options = {}) {
+  let getter;
+  if (typeof source === 'function') {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+  let newValue, oldValue;
+  function job() {
+    // 当 obj.foo的值发生变化时，会触发 scheduler 函数的执行
+    newValue = effectFn();
+    // 将新值和旧值作为回调函数的参数
+    callback(newValue, oldValue);
+    // 更新旧值，不然下一次会得到错误的旧值
+    oldValue = newValue;
+  }
+  const effectFn = effect(() => getter(), {
+    // 开启 lazy 选项，把返回值储存到 effectFn中以便后续调用
+    lazy: true,
+    scheduler: () => {
+      //
+      if (options.flush === 'post') {
+        // 如果 flush 为 post 咋将 job 放到微任务队列中
+        const p = Promise.resolve();
+        p.then(job);
+      } else {
+        job();
+      }
+    },
+  });
+
+  if (options.immediate) {
+    job();
+  } else {
+    // 手动调用副作用函数，拿到的值就是旧值
+    oldValue = effectFn();
+  }
+}
+```
+
+如上述代码所示，我们在 scheduler 函数中判断选项中是否 flush 的值为 post，如果是，则放到微任务队列中执行，反之则是同步执行，这相当于“sync”的实现机制。
