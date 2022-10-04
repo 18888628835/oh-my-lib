@@ -316,6 +316,8 @@ function trigger(target, key) {
 }
 ```
 
+![image-20221004211729151](../assets/image-20221004211729151.png)
+
 ## 1.4 分支切换和 cleanup
 
 什么是分支切换？
@@ -1336,7 +1338,7 @@ function watch(source, callback) {
 3. 当变化发生并触发 scheduler 调度函数执行时，会重新调用 effectFn 并拿到新值，这样我们就拿到了 newValue 和 oldValue，传递给 callback 就可以了
 4. 用新值更新旧值：`oldValue = newValue;`,否则在下次变更发生时会得到错误的旧值
 
-### 立即执行的 watch 与回调执行时机
+## 1.10 立即执行的 watch 与回调执行时机
 
 watch 本质上是对 effect 的二次封装，这一节就来实现立即执行的回调函数以及回调函数的执行时机。
 
@@ -1461,3 +1463,224 @@ function watch(source, callback, options = {}) {
 ```
 
 如上述代码所示，我们在 scheduler 函数中判断选项中是否 flush 的值为 post，如果是，则放到微任务队列中执行，反之则是同步执行，这相当于“sync”的实现机制。
+
+## 1.11 过期的副作用函数
+
+日常工作中会遇到以下问题：
+
+```js
+let finalData;
+watch(obj, async () => {
+  // 发布并等待网络请求
+  const res = await fetch('post/xx');
+  // 将结果赋值给 data
+  finalData = res;
+});
+```
+
+上面的代码中，我们使用 watch 观察 obj 数据的变化动态，一旦请求成功，则将结果赋值给 finalData 变量。
+
+仔细想想这段代码可能会发生竞态问题：当我们第一次修改 obj 的值，会触发回调函数的执行，此时第一次网络请求，我们称之为 A。
+
+在请求 A 返回之前，假设我们还对 obj 的对象进行了第二次修改，这会导致发送的第二次请求 B。此时请求 A 和请求 B 都在进行中。我们不能确定哪一个先返回。如果 B 先返回结果，那么最终会导致 finalData 的结果为 A 请求的结果。
+
+> 第一次修改 obj ——> 发送请求 A
+>
+> 第二次修改 obj ——> 发送请求 B
+>
+> B 先返回结果，则将 B 的结果赋值给 finalData
+>
+> A 后返回结果，最终 A 的结果赋值给 finalData
+
+但是由于请求 B 是后发送的，所以我们认为 B 应该是最新的数据，而请求 A 应该被认为是过期的，所以我们希望变量 finalData 存储的值应当是请求 B 返回的结果。
+
+这个问题可以这样解决：请求 A 是副作用函数第一次执行的，请求 B 是副作用函数第二次执行的副作用。由于 B 请求的产生，请求 A 应当被视为过期的，其产生的结果应当视为无效。
+
+我们需要一个能让副作用过期的功能。在 Vue.js 中，watch 函数的回调函数接收第三个参数 onInvalidate，它是一个函数。类似于事件监听器，我们可以使用 onInvalidate 函数注册一个回调，这个回调函数会在当前副作用函数过期时执行：
+
+```js
+let finalData;
+
+watch(obj, async (newValue, oldValue, onInvalidate) => {
+  // 定义一个标志，代表当前副作用函数是否过期，默认为 false，代表没有过期
+  let expired = false;
+  // 用 onInvalidate 函数注册一个过期回调
+  onInvalidate(() => {
+    // 当过期时，将 expired 设置为 true
+    expired = true;
+  });
+  const res = await fetch('post/xxx');
+  // 只有当该副作用函数的执行没有过期时，才会执行后续操作
+  if (!expired) {
+    finalData = res;
+  }
+});
+```
+
+在上面的代码中，我们定义了 expired 标志，用来标志当前副作用函数是否过期；接着调用 onValidate 函数注册一个过期回调，当该副作用函数的执行过期时将 expired 设置为 true；最后只有当没有过期时才采用请求结果，这样就能够有效避免上述问题。
+
+onValidate 的原理是每次当 watch 内部检测到变更后，在副作用执行重新执行之前，会先调用我们的 onInvalidate 函数注册的过期回调即可：
+
+```diff
+function watch(source, callback, options = {}) {
+  let getter;
+  if (typeof source === "function") {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+  let newValue, oldValue;
+
+  // cleanup 用来存储用户注册的过期回调
++  let cleanup;
+  // 定义 onValidate 函数
++  function onValidate(fn) {
++    cleanup = fn;
++  }
+  function job() {
+    // 在调用 effectFn 之前，先调用过期回调
++    if (cleanup) cleanup();
+    // 当 obj.foo的值发生变化时，会触发 scheduler 函数的执行
+    newValue = effectFn();
+    // 将新值和旧值作为回调函数的参数
+    // 将 onValidate 作为第三个参数，以供用户使用
++    callback(newValue, oldValue, onValidate);
+    // 更新旧值，不然下一次会得到错误的旧值
+    oldValue = newValue;
+  }
+  const effectFn = effect(() => getter(), {
+    // 开启 lazy 选项，把返回值储存到 effectFn中以便后续调用
+    lazy: true,
+    scheduler: () => {
+      if (options.flush === "post") {
+        // 如果 flush 为 post 咋将 job 放到微任务队列中
+        const p = Promise.resolve();
+        p.then(job);
+      } else {
+        job();
+      }
+    }
+  });
+
+  if (options.immediate) {
+    job();
+  } else {
+    // 手动调用副作用函数，拿到的值就是旧值
+    oldValue = effectFn();
+  }
+}
+```
+
+1. 在这段代码中，我们首先定义了 cleanup 变量，用来保存用户通过 onValidate 函数注册的函数。
+2. onValidate 函数的代码非常简单，仅仅是将注册的函数赋值给 cleanup 变量
+3. job 函数内，每次执行 callback 函数前，都先检测 cleanup 是否存在，即是否过期。如果存在，则调用 cleanup 函数
+4. 最后把 onValidate 函数传递给用户，供其使用
+
+通过以下例子说明：
+
+```js
+watch(obj, async (newValue, oldValue, onInvalidate) => {
+  let expired = false;
+  onInvalidate(() => {
+    expired = true;
+  });
+  const res = await fetch('post/xxx');
+  if (!expired) {
+    finalData = res;
+  }
+});
+// 第一次修改
+obj.foo++;
+setTimeout(() => {
+  // 200ms后做第二次修改
+  obj.foo++;
+}, 200);
+```
+
+如上面的代码所示，会调用两次 obj.foo++，这也意味着 watch 的回调函数会触发两次：
+
+1. 第一次，执行回调函数，此时生成 expiredA = false，并且注册 onInvalidate 函数，发出请求并等待结果，假设 1000ms 后结果返回
+2. 200ms 后第二次回调函数执行，生成 expiredB = false。由于第一次 callback 的执行，闭包中的 cleanup 已经注册过了。所以在执行第二次 callback 之前，会调用 cleanup 中的函数
+3. 这样第一次执行回调时产生的 expiredA 就会变成 true，即副作用函数的执行过期了。
+4. 等第二次结果返回后，由于 expired 变成了 true，所以 res 的结果不会被赋值给 finalData，相当于将过期的结果给抛弃了
+
+以下是简化的过程：
+
+> 第一次修改 obj 的值 ——> 发送请求 A，expiredA = false
+>
+> 第二次修改 obj 的值 ——> 发送请求 B，expiredB=false，expiredA=true
+>
+> 请求 B 先返回，expiredB=false，expiredA=true。由于 expiredB 没有过期，将 B 的结果赋值给 finalData
+>
+> 请求 A 后返回，expiredB=false，expiredA=true，由于 expiredA 过期了，结果就被抛弃了
+
+## 1.12 总结
+
+1. 请实现一个 effect 函数用来注册 effectFn，当数据改变时，就执行 effectFn 以自动更新页面
+
+   ```js
+   let obj = { foo: 1, bar: 2 };
+
+   let data = new Proxy(obj,...);
+
+   function render() {
+     document.body.innerText = `
+     foo:${data.foo}
+     bar:${data.bar}
+     `;
+   }
+
+   function effect(effectFn) {
+     // 当 obj 改变时自动执行副作用函数effectFn以渲染页面
+     // ...请完成代码
+   }
+
+   effect(render);
+
+   setTimeout(() => {
+     data.foo++;
+     data.bar--;
+   }, 2000);
+
+   /*
+   期待结果：2000ms 后 body 内容为:
+   foo:2
+   bar:1
+   */
+   ```
+
+   答案：https://codesandbox.io/s/1-jian-dan-de-xiang-ying-xi-tong-42ol5n?file=/src/index.js
+
+2. 分支切换问题
+
+   ```js
+   function render() {
+     console.log('我渲染了');
+     document.body.innerText = data.ok ? data.text : 'not';
+   }
+
+   function effect(effectFn) {
+     // 当 obj 改变时自动执行副作用函数effectFn以渲染页面
+     activeEffect = effectFn;
+     effectFn();
+   }
+
+   effect(render);
+
+   setTimeout(() => {
+     data.ok = false;
+     data.text = '123';
+   }, 1000);
+
+   // 输出结果为：我渲染了*3
+   ```
+
+   `effect`接受的副作用函数 render 中的代码会根据字段 `obj.ok` 的变化来执行不同的分支。这就是分支切换。
+
+   按照正确的逻辑，上面代码`render` 函数最多只执行两次。
+
+   但现有代码却输出了三次“我渲染了”，这是因为依赖中有遗留的副作用函数，你能分析并解决这个问题吗？
+
+   > 提示：你可以在问题 1 的答案基础上实现分支切换的功能
+
+   答案：https://codesandbox.io/s/2-fen-zhi-qie-huan-5xfhv6
