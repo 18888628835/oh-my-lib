@@ -29,9 +29,37 @@ TypeScript 包含了 JavaScript 的 8 种基本类型：
 以及四种特殊类型：
 
 - void ：表示为空，一般用来表示返回值为 undefined
+
 - never：表示永不可达的类型
+
 - any：任意类型
-- unknown：未知类型，任何类型都可以赋值给它，但是它不可以赋值给别的类型
+
+- unknown：未知类型，任何类型都可以赋值给它，但是它不可以赋值给别的类型。
+
+  为什么说任何类型都可以赋值给 unknown 呢？比如以下代码，我们可以把任何类型的数据传给`getSomething`函数。
+
+  ```
+  function getSomething(x:unknown){
+      return x
+  }
+  ```
+
+  然而，一旦把它认定成别的类型，就会报错。
+
+  ![image-20221005201054094](../assets/image-20221005201054094.png)
+
+  我们需要通过类型收窄来使得 unknown 类型更加安全
+
+  ```js
+  class Person {
+    name: string = 'qyx';
+  }
+
+  function getSomething(x: unknown) {
+    if (x instanceof Person) return x.name;
+    return 'something';
+  }
+  ```
 
 同时，可以用 `type`来做类型别名。
 
@@ -45,7 +73,15 @@ TypeScript 包含了 JavaScript 的 8 种基本类型：
 >
 >    ![image-20220723202751375](../assets/image-20220723202751375.png)
 >
-> 2. type 是类型别名，interface 是接口。类型别名不能`extends`和`implements`,如果想要类似效果只能用`&`运算符交叉合并类型。
+> 2. type 是类型别名，interface 是接口。类型别名不能`extends`和`implements`,如果想要类似`extends`的效果只能用`&`运算符交叉合并类型。
+>
+>    而`&`的效果跟 `extends`也是有差别的，比如同属性情况下用`&`会得到 never 类型
+>
+>    ![image-20221005204208904](../assets/image-20221005204208904.png)
+>
+>    而用 `extends` 就可以得到报错信息
+>
+>    ![image-20221005205129256](../assets/image-20221005205129256.png)
 >
 > 3. interface 没有办法写元组类型或者联合类型。
 >
@@ -241,6 +277,164 @@ type noName = AgeTypeOf<typeof noName>; // Type '{ age: number; }' does not sati
 type Union = 1 | 2 | 3;
 ```
 
+联合类型可以用来取并集或者其中一个类型用
+
+```js
+type A = { name: string };
+type B = { age: number };
+type C = A | B;
+
+const person1: C = {
+  name: 'qiuyanxi',
+};
+
+const person2: C = {
+  age: 123,
+};
+
+const person3: C = {
+  name: 'qiuyanxi',
+  age: 123,
+};
+```
+
+上面的代码中，联合类型既可以用来表示 A，也可以用来表示 B，也可以用来表示 A 与 B 的并集的集合。
+
+### 类型收窄
+
+类型收窄就是类型可能有很多种情况，我们需要根据不同的情况做不同的处理，这时候需要收窄类型。
+
+- **typeof**
+
+比如下面的代码
+
+```js
+function getSomething(a: number | string) {
+  return a.toFixed(2);
+}
+```
+
+由于 a 可能是 number 也可能是 string 类型，这时候`a.toFixed`就会报错
+
+![image-20221005192309091](../assets/image-20221005192309091.png)
+
+因为 string 类型是没有 toFixed 这个方法的，于是编译就不通过。
+
+这时候可以用 typeof 来收窄类型
+
+```js
+function getSomething(a: number | string) {
+  if (typeof a === 'number') {
+    return a.toFixed(2);
+  } else {
+    return a.slice();
+  }
+}
+```
+
+typeof 可以用来收窄以下类型：`number`、`string`、`function`、`object`、`boolean`、`symbol`、`undefined`。
+
+- **instanceof**
+
+  同理还有`instanceof`语法，经常用于`Object`等复杂类型
+
+  ```js
+  class Person {
+    count: number = 0;
+  }
+  function addObj(first: object | Person, second: object | Person) {
+    return first.count + second.count;
+  } // 类型“object”上不存在属性“count”。ts(2339)
+  复制代码;
+  ```
+
+  上面就会报错，我们可以使用`instanceof`做一个判断
+
+  ```js
+  class Person {
+    count: number = 0;
+  }
+  function addObj(first: object | Person, second: object | Person) {
+    if (first instanceof Person && second instanceof Person) {
+      return first.count + second.count;
+    }
+    return null;
+  }
+  ```
+
+  `instanceof`常用于 JS 内置对象、或者 class 类型的判断，不能用于`type`或者`interface`定义的类型。例如把上面的 Person 修改成 type 类型就会报错
+
+  ![image-20221005193301022](../assets/image-20221005193301022.png)
+
+- **in**
+
+  `in` 语法就是用来解决上面的问题的。我们可以用 in 来做逻辑判断：
+
+  ```js
+  interface women {
+    say(): number;
+  }
+  interface man {
+    sayHi(): number;
+  }
+  function fn(arg: women | man) {
+    if ('say' in arg) {
+      arg.say();
+    } else {
+      arg.sayHi();
+    }
+  }
+  ```
+
+- **用 isArray 收窄**
+
+  事实上，上面的 typeof、in、instanceof 都是 js 的方式来完成类型收窄的，TS 能够根据这些收窄方式来判断出不同的类型，所以理论上还有`isArray`可以收窄
+
+  ```js
+  function getSomething(a: string | string[]) {
+    if (Array.isArray(a)) {
+      return a.concat([]);
+    }
+    return a.slice();
+  }
+  ```
+
+- **is 收窄**
+
+  `is` 收窄是 用 TS 的方式手动进行收窄，需要用到一个函数：
+
+  ```js
+  type A = {
+      name: string
+  }
+
+  type B = string[]
+
+  function getSomething(a: A | B) {
+      if (isA(a)) {
+          return a.name
+      } else {
+          return a.concat([])
+      }
+  }
+
+  function isA(x: A | B): x is A {
+      return 'name' in x
+  }
+  ```
+
+  我们定义了一个`isA`的函数，注意它的返回值需要是`x is A`而不是`boolean`。这样 TS 就能识别我们手动收窄的类型。
+
+  以下是不用 is 关键字进行收窄的效果，可以看到报错了。
+
+  ![image-20221005195328878](../assets/image-20221005195328878.png)
+
+- **as 断言**
+
+  as 是强制让 ts 认识到这个类型是什么，有时候 ts 没办法区分类型是什么，而我们是知道的，这个时候就可以用 as 断言来强制收窄。
+
+  ![image-20221005203143228](../assets/image-20221005203143228.png)
+
 ### 交叉类型
 
 交叉类型使用`&`运算符，可以对类型进行合并
@@ -256,6 +450,10 @@ const user: User = {
 不同的类型则无法合并：
 
 ![image-20220723194124140](../assets/image-20220723194124140.png)
+
+两个具有相同属性的类型别名合并后的交叉类型是`never`
+
+![image-20221005204208904](../assets/image-20221005204208904.png)
 
 ### 映射类型
 
@@ -401,7 +599,7 @@ type UserValueType = ValueOf<typeof User>;
 type AdminValueType = ValueOf<typeof Admin>;
 ```
 
-有时候我们的业务促使我们需要制定一个类型标注表：
+有时候我们的业务促使我们需要写一个 JS 版本的类型 schema（类似于 Vue3）：
 
 ```js
 const user = {

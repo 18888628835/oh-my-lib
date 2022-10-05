@@ -188,8 +188,7 @@ effect(function effectFn() => {
 如果我们用 target 表示被操作的代理对象，字段名作为 key，effectFn 作为被注册的副作用函数。我们可以为这三个角色建立如下关系：
 
 > target
-> ├─ key
-> ├─ effectFn
+> ├─ key ─ effectFn
 
 现在，我们将 bucket 修改为 WeakMap 结构
 
@@ -316,8 +315,6 @@ function trigger(target, key) {
 }
 ```
 
-![image-20221004211729151](../assets/image-20221004211729151.png)
-
 ## 1.4 分支切换和 cleanup
 
 什么是分支切换？
@@ -335,16 +332,13 @@ effect(() => {
 分支切换可能会产生遗留的副作用函数。比如，字段 obj.ok 初始值为 true 时，会读取 obj.text 的值，那么这时候就会触发 obj.ok 和 obj.text 两个读取操作，此时会往 bucket 中存入两个副作用函数。
 
 > data
-> ├─ ok
-> ├─ effectFn
-> ├─ text
-> ├─ effectFn
+> ├─ ok ─ effectFn
+> ├─ text ─ effectFn
 
 然而 obj.ok 为 false 时，effectFn 触发后并不会读取 obj.text ，那么理想情况下，effectFn 不会被 obj.text 对应的依赖集合所收集。
 
 > data
-> ├─ ok
-> ├─ effectFn
+> ├─ ok ─ effectFn
 
 不过按照现在的实现，即使将 obj.ok 修改为 false，并触发副作用函数重新执行，整个依赖关系并没有发生变化，这时就产生了遗留的副作用函数。
 
@@ -569,10 +563,8 @@ effect(function effectFn1() {
 理想情况下，我们希望的依赖关系是这样的：
 
 > data
-> ├─ foo
-> ├─ effectFn1
-> ├─ bar
-> ├─ effectFn2
+> ├─ foo ─ effectFn1
+> ├─ bar ─ effectFn2
 
 当修改 obj.foo 时，effectFn1 会执行。由于 effectFn1 里面也有一个 effect，所以当执行了 effectFn1 时，毫无疑问也会触发 effectFn2 的执行。
 
@@ -607,8 +599,7 @@ effectFn2 执行
 5. 在 effectFn 内部发现 obj.bar 被访问，进入 get 拦截， activeEffect 作为 effectFn2 会被收集到桶里。
 
    > data
-   > ├─ bar
-   > ├─ effectFn2
+   > ├─ bar ─ effectFn2
 
 6. effectFn2 执行结束后，发现 obj.foo 被访问，此时走 get 拦截，activeEffect 并没有变化！
 
@@ -1651,6 +1642,8 @@ setTimeout(() => {
 
    答案：https://codesandbox.io/s/1-jian-dan-de-xiang-ying-xi-tong-42ol5n?file=/src/index.js
 
+   ![image-20221005103953406](../assets/image-20221005103953406.png)
+
 2. 分支切换问题
 
    ```js
@@ -1659,28 +1652,36 @@ setTimeout(() => {
      document.body.innerText = data.ok ? data.text : 'not';
    }
 
-   function effect(effectFn) {
-     // 当 obj 改变时自动执行副作用函数effectFn以渲染页面
-     activeEffect = effectFn;
-     effectFn();
+   function print() {
+     console.log('data.text的结果为：', data.text);
    }
 
    effect(render);
+   effect(print);
 
    setTimeout(() => {
      data.ok = false;
      data.text = '123';
    }, 1000);
 
-   // 输出结果为：我渲染了*3
+   /*
+   输出结果为：
+   我更新视图了 
+   data.text的结果为： hello world 
+   我更新视图了
+   我更新视图了 
+   data.text的结果为： 123 
+   */
    ```
 
    `effect`接受的副作用函数 render 中的代码会根据字段 `obj.ok` 的变化来执行不同的分支。这就是分支切换。
 
    按照正确的逻辑，上面代码`render` 函数最多只执行两次。
 
-   但现有代码却输出了三次“我渲染了”，这是因为依赖中有遗留的副作用函数，你能分析并解决这个问题吗？
+   但现有代码却输出了三次“我更新视图了”，这是因为依赖中有遗留的副作用函数，你能分析并解决这个问题吗？
 
    > 提示：你可以在问题 1 的答案基础上实现分支切换的功能
 
    答案：https://codesandbox.io/s/2-fen-zhi-qie-huan-5xfhv6
+
+   ![image-20221005114539768](../assets/image-20221005114539768.png)
