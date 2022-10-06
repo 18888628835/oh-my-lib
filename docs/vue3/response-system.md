@@ -1678,10 +1678,63 @@ setTimeout(() => {
 
    按照正确的逻辑，上面代码`render` 函数最多只执行两次。
 
-   但现有代码却输出了三次“我更新视图了”，这是因为依赖中有遗留的副作用函数，你能分析并解决这个问题吗？
+   但现有代码却输出了三次“我更新视图了”，这是因为依赖中有遗留的副作用函数，请分析并解决这个问题
 
    > 提示：你可以在问题 1 的答案基础上实现分支切换的功能
 
    答案：https://codesandbox.io/s/2-fen-zhi-qie-huan-5xfhv6
 
    ![image-20221005114539768](../assets/image-20221005114539768.png)
+
+3. 嵌套的 effectFn 问题
+
+   ```js
+   effect(function effectFn1() {
+     console.log('effectFn1 执行');
+     effect(function effectFn2() {
+       console.log('effectFn2 执行');
+       temp2 = data.bar;
+     });
+     temp1 = data.foo;
+   });
+
+   data.foo = false;
+
+   /*
+   输出结果为：
+   effectFn1 执行 
+   effectFn2 执行 
+   effectFn2 执行 
+   */
+   ```
+
+   上面的代码是嵌套的 effect，由于是嵌套，所以当修改 data.foo 时，会重新执行 effectFn1 和 effectFn2 两个函数。即预想的结果为：
+
+   ```
+   effectFn1 执行
+   effectFn2 执行
+   effectFn1 执行
+   effectFn2 执行
+   ```
+
+   但是用前两题的答案的代码运行却输出了非预期结果，请分析并解决这个问题。
+
+   答案：https://codesandbox.io/s/3-qian-tao-de-effect-rcorx1?file=/src/index.js
+
+4. 无限循环问题
+
+   ```js
+   effect(() => {
+     console.log('我要被执行循环啦');
+     data.foo = !data.foo;
+   });
+
+   effect(() => {
+     console.log('data.bar', data.bar);
+   });
+   data.bar = !data.bar;
+   ```
+
+   上面的代码会形成无限循环，请分析并解决。
+
+   答案：https://codesandbox.io/s/4-bi-mian-wu-xian-di-gui-xun-huan-o0leze?file=/src/index.js
