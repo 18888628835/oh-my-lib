@@ -1,4 +1,4 @@
-# commit 时格式化并检查
+# ESLint 前端工作流
 
 ## 前置工作
 
@@ -269,7 +269,7 @@ npm install --save-dev --save-exact prettier
 	}
 ```
 
-> 这个规则将合并和覆盖配置的.pretierrc 文件，建议单独创建.eslintrc 文件
+> 这个规则将合并和覆盖配置的.pretierrc 文件，建议单独创建.pretierrc 文件
 
 然后在 Package.json 中添加以下脚本命令：
 
