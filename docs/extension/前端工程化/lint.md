@@ -392,6 +392,8 @@ npx husky add .husky/pre-commit "npm run format && npm run lint:style && npm run
 
 通过分析我们发现，commit 前应该只需 lint 暂存区的代码即可。
 
+> 如果写 TypeScript。最好能仅格式化暂存区的代码，但检查所有代码，原因是修改了类型文件后可能会影响到其他未修改的文件，这时候不检查所有代码则很难发现这个问题
+
 那么该如何只对 git 暂存区的代码进行 lint 呢？需要用到`lint staged`
 
 ## 配置 lint-staged
@@ -407,10 +409,9 @@ npm i --save-dev lint-staged
 ```diff
   "scripts": {
     "prepare": "husky install",
--    "lint": "eslint src --ext .js,.ts,.jsx,.tsx --fix",
+     "lint": "eslint src --ext .js,.ts,.jsx,.tsx --fix",
 -    "format": "prettier --write \"src/**/*.{html,ts,js,json,jsx,tsx}\"",
 -    "lint:style": "stylelint \"**/*.{css,less}\" --fix",
-+    "lint": "eslint --fix",
 +    "format": "prettier --write",
 +    "lint:style": "stylelint --fix"
 +  },
@@ -538,7 +539,7 @@ npm i --save-dev lint-staged
 ```json
   "scripts": {
     "prepare": "husky install",
-    "lint": "eslint --fix",
+    "lint": "eslint src --ext .js,.ts,.jsx,.tsx --fix",
     "format": "prettier --write",
     "lint:style": "stylelint --fix"
   },
