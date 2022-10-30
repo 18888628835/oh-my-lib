@@ -11,7 +11,7 @@ const nav = [
       { title: 'Node', path: '/node' },
       { title: 'Flutter', path: '/flutter' },
       { title: 'Vue3原理', path: '/vue3' },
-      { title: 'Jest实践', path: '/jest' },
+      { title: '前端测试', path: '/test' },
     ],
   },
   {
