@@ -35,9 +35,12 @@ const nav = [
     path: '/english',
     children: [{ title: '初级语法', path: '/english/初级语法' }],
   },
-  { title: '组件库', path: '/components' },
   {
-    title: 'package',
+    title: '我的组件库',
+    path: 'https://18888628835.github.io/Simpler-Components/vtable',
+  },
+  {
+    title: '我的NPM包',
     path: 'https://18888628835.github.io/react-drag-resizable/',
   },
   { title: 'GitHub', path: 'https://github.com/18888628835' },
