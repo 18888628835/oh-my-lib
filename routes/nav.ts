@@ -9,7 +9,7 @@ const nav = [
       { title: '设计模式', path: '/design-pattern' },
       { title: 'HTTP', path: '/http' },
       { title: 'Node', path: '/node' },
-      { title: 'Flutter', path: '/flutter' },
+
       { title: 'Vue3原理', path: '/vue3' },
       { title: '前端测试', path: '/test' },
     ],
@@ -27,6 +27,8 @@ const nav = [
       { title: 'Git', path: '/extension/git' },
       { title: 'GraphQL', path: '/extension/graphql' },
       { title: 'AWS', path: '/aws' },
+      { title: 'Flutter', path: '/flutter' },
+      { title: 'MySQL', path: '/mysql' },
     ],
   },
 
