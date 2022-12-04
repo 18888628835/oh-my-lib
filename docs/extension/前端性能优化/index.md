@@ -27,7 +27,442 @@
 
 总的来说，前端性能优化就是从网络、资源消耗、浏览器渲染这三个维度入手，对每个过程进行优化。
 
-## 1.选择合适的图片格式
+## 如何查看网页性能
+
+工欲善其事必先利其器，好的性能测量工具是帮助我们做网站性能优化的第一步，这里推荐以下三个性能测量工具：
+
+- Chrome DevTools 开发调试、Performance 评测
+- Lighthouse 网站整体质量评估
+- [WebPageTest](https://www.webpagetest.org/) 多测试地点、全面性能报告
+
+上面三个是从不同作用出发，从不同角度查看性能指标的工具。
+
+### Network 瀑布图
+
+打开 `DevTools`,点击`NetWork`,可以看到页面加载概览和瀑布图，还有两根垂直的长线，绿色是 dom 下载完成时间，红色是总资源加载完成时间。
+
+![image-20221120115702641](../../assets/image-20221120115702641.png)
+
+页面加载概览的内容为：
+
+- requests : 请求数
+- transferred : 传输量
+- resources : 资源量
+- DOMContentLoaded : DOM 加载完成时间
+- Loaded : 总资源加载时间
+
+鼠标悬浮到瀑布图上后可以看到以下指标：
+
+![image-20221120120636459](../../assets/image-20221120120636459.png)
+
+性能指标内容如下：
+
+- Resource Scheduling：资源调度情况，浏览器会自动对高优先级的资源安排请求。
+- Connection Start：开始连接后的情况
+  - DNS Lookup：dns 连接时间
+  - Initial connection：TCP 连接时间
+  - SSL：https 下的 ssl 协商(安全性验证)时间
+- Request/Response 请求/响应时间
+  - Request sent：请求发送时间
+  - Waiting for server response 【**TTFB**】：请求发出去到响应返回的时间【影响用户体验最重要的指标】
+  - Content Download：返回内容下载时间
+
+其中 TTFB 是影响用户对网站体验的最重要的指标，它能够反映后台数据处理的速度和网络的速度，TTFB 应该在 500ms 以内。
+
+### Performance
+
+打开 Devtools，点击 Performance，使用这个工具有两种方式：
+
+1. 点击 record button 来开始记录，通过对页面的各种操作来产生性能报告
+2. 点击 reload button 来重新加载页面，Performance 会记录页面加载后的各种行为并产生性能报告
+
+![image-20221122153549531](../../assets/image-20221122153549531.png)
+
+### Lighthouse 网页性能查看器
+
+Chrome 浏览器的 LightHouse 模块提供性能报告和性能建议的功能。
+
+打开 DevTools — Lighthouse — generator 即可生成
+
+<img src="../../assets/image-20220307155557157.png" alt="image-20220307155557157" style="zoom:50%;" />
+
+其中能体现网站性能的指标有两个：
+
+- First Contentful Paint 首屏加载
+- Speed Index 页面加载的速度指数
+
+![image-20221120163252764](../../assets/image-20221120163252764.png)
+
+当所有报告出来后，直接查看浏览器给的`OPPORTUNITIES`建议，然后对应建议一条一条优化即可。
+
+<img src="../../assets/image-20220307155858265.png" alt="image-20220307155858265" style="zoom:50%;" />
+
+### FPS meter
+
+网站的 UX 体验也是重要的性能因素。
+
+一个网页跟游戏一样，在渲染时会有渲染帧数，即 FPS。大于 60fps 会让肉眼感觉速度很快，帧数越低就觉得越慢。
+
+在`DevTools`中，使用快捷键`command+shift+p`搜索`frame`，通过`Show frame per second(FPS) meter`，我们能够检测出网站对应的 fps 值。
+
+![image-20221120164735061](../../assets/image-20221120164735061.png)
+
+![image-20221120164922219](../../assets/image-20221120164922219.png)
+
+以上是 pc 端淘宝网的页面 FPS 监测结果。
+
+在淘宝网中滑动、查看侧边栏等交互操作，会让检测器中 FPS 值产生变动。网页版的淘宝网平均值达到 50fps 以上，对于图片资源特别大的电商网站来说，这个数值非常可观。
+
+### WebPageTest
+
+WebPageTes 的特点是能够给出不同测试地点，不同浏览器的性能速度指标。这两个大杀器也是让它能够跟谷歌浏览器提供的测量工具并驾齐驱的原因。
+
+打开[WebPageTest](https://www.webpagetest.org/) 官方网站，就可以看到以下内容
+
+![image-20221120205410622](../../assets/image-20221120205410622.png)
+
+我们只需要输入 URL、选择测试地点、选择浏览器配合其他默认的高级选项，然后点击`Start Test`按钮，就可以得出比较详细的测试报告，类似以下图示：
+
+**性能概览**
+
+![image-20221120205840495](../../assets/image-20221120205840495.png)
+
+这是页面对测试网站的总体性能评价概览。
+
+**观察指标**
+
+![image-20221120205940385](../../assets/image-20221120205940385.png)
+
+这里有我们关注最重要的指标：
+
+1. First View 第一次访问
+2. Repeat View 再次访问
+3. Start Render 首屏渲染时间
+4. Speed Index 速度指数
+5. Total Blocking Time 页面不能交互的时间
+
+**瀑布图，页面快照和录像**
+
+![image-20221120210124870](../../assets/image-20221120210124870.png)
+
+点击瀑布图后能够清晰显示各资源的加载排序以及加载时间。
+
+下图为一部分淘宝的图片资源加载瀑布图
+
+![image-20221120212906706](../../assets/image-20221120212906706.png)
+
+这些资源有个很明显的特点，它们是并行加载的。这说明淘宝对图片资源的加载顺序做了非常好的优化。
+
+点击 Watch Video 还能看到页面从加载到渲染的整个详细过程
+
+![image-20221120210248334](../../assets/image-20221120210248334.png)
+
+## RAIL 测量模型
+
+RAIL 测量模型是谷歌提供的性能测量标准，它能够指导我们从哪些维度出发提升页面的性能。
+
+RAIL 测量模型分以下板块：
+
+- Response 响应 —— 用户获得反馈的响应时间（网络、交互等）
+- Animation 动画 —— 动画流畅程度（FPS 帧数）
+- Idle 空闲 —— 让主线程有更多的空闲时间，这样不会阻塞用户的交互事件
+- Load 加载 —— 加载速度
+
+RAIL 测量的最终目标是让用户获得最好的用户体验。
+
+那达到什么标准才能算性能很好呢？
+
+RAIL 给出了评估标准：
+
+- 响应：处理事件应在 50ms 内完成（延迟 100ms，扣除输入的 50ms 保险时间）
+
+  ![image-20221120173211934](../../assets/image-20221120173211934.png)
+
+- 动画：每 10ms 产生 1 帧（即 1000ms 达到 60 帧=16ms/帧-6ms 浏览器渲染时间）
+
+- 空闲：尽可能增加主线程空闲时间。（让大量的运算工作放在后端去做）
+
+- 加载：在 5s 内完成内容加载并可以交互
+
+## 关键指标整理
+
+1. First Paint：在用户导航到网页后在屏幕上第一次呈现点时
+2. First Contentful Paint：第一个文本或者图像等 DOM 发生首次内容绘制的时间
+3. TTFB：请求发出后响应返回的时间
+4. Time to Interactive：可交互时间（TTI）,衡量的是用户与页面进行互动之前所花费的时间，即页面对点击做出反应之前的时间。
+5. Speed Index：页面加载的速度指数
+6. Total Blocking Time：页面不能交互的时间
+
+FP 和 FCP 很容易混淆，下面用一张图来表示它们的区别
+
+![image-20221123213749055](../../assets/image-20221123213749055.png)
+
+## 常用的性能测量 APIS
+
+## 【第一弹】：避免布局抖动
+
+### 什么是布局抖动
+
+所谓布局抖动，指的是连续不断的回流会让浏览器一直处于 layout 的阶段，其结果是让页面变得非常卡顿。
+
+[这里有个布局抖动的示例](http://wilsonpage.github.io/fastdom/examples/animation.html)—— 点击 `Forced synchronous layout` ，再点击`Start` 按钮即可查看到布局抖动的影响结果。
+
+![image-20221122100134570](../../assets/Nov-22-2022 11-06-50.gif)
+
+> 布局抖动英文名为 layout thrashing，回流的英文名为 reflow。
+>
+> 布局抖动涉及到浏览器的渲染过程—— 关键渲染路径。
+>
+> 解释关键渲染路径，有两篇文章值得一看:
+
+> - [MDN-渲染页面：浏览器的工作原理](https://developer.mozilla.org/zh-CN/docs/Web/Performance/How_browsers_work)
+> - [关键渲染路径](https://qiuyanxi.com/browser/浏览器渲染过程) —— 笔者对渲染过程的扩展整理版
+
+我们分析一下为什么会产生抖动。
+
+**核心代码如下：**
+
+```js
+var mover = {
+  sync: function(m) {
+    // Read the top offset, and use that for the left position
+    mover.setLeft(movers[m], movers[m].offsetTop);
+  },
+  async: function(m) {
+    // Use fastdom to batch the reads
+    // and writes with exactly the same
+    // code as the 'sync' routine
+    fastdom.measure(function() {
+      var top = movers[m].offsetTop;
+      fastdom.mutate(function() {
+        mover.setLeft(movers[m], top);
+      });
+    });
+  },
+  noread: function(m) {
+    // Simply use the array index
+    // as the top value, so no DOM
+    // read is required
+    mover.setLeft(movers[m], m);
+  },
+  setLeft: function(mover, top) {
+    mover.style.transform =
+      'translateX( ' + (Math.sin(top + timestamp / 1000) + 1) * 500 + 'px)';
+  },
+};
+
+function update(thisTimestamp) {
+  timestamp = thisTimestamp;
+  for (var m = 0; m < movers.length; m++) {
+    mover[moveMethod](m);
+  }
+  raf = window.requestAnimationFrame(update);
+}
+```
+
+**源码解读：**
+
+1. 当点击 `Start` 按钮时，会执行`window.requestAnimationFrame` 函数。这个函数会调用 `update` 方法,并且内部一直调用它。
+2. `update` 内部调用`mover[moveMethod]`方法，默认 `moveMethod`为`sync`,调用 `mover.sync`的方法，这个方法里就一行执行函数：`mover.setLeft(movers[m], movers[m].offsetTop);`
+3. `mover.setLeft`就是简单的修改 `transform` 属性
+
+**核心思想解读**：
+
+1. 这个例子中的 `mover.sync`、`mover.async`、`mover.noread`之间的区别在于读取`offsetTop`几何属性的方式。其中 `sync` 是直接读，`async` 是通过 `fastDom`去异步调度读，`noread` 就是不读取
+2. 为了削减其他产生回流的因素对例子的影响，例子中用来做平移动画的属性是`transform`，——**这个属性不会产生回流**
+3. 这个例子证明了直接读取几何属性是会产生回流抖动的。
+
+### 如何避免布局抖动
+
+通过上面的示例，我们已经能体会到在代码中直接读取几何属性，是一种编码陷阱，它会导致浏览器的布局抖动。
+
+要避免布局抖动，有两个代码层面的方法：
+
+- 避免回流 —— 尽量避免写产生回流的代码，这里列举了[影响回流的操作](https://qiuyanxi.com/browser/浏览器渲染过程#影响回流的操作)
+- 读写分离 —— 当读取几何属性（offsetXxx 等）时，浏览器会马上执行一次 layout 操作，频繁的读写必然导致布局抖动。
+
+避免回流很简单，我们只需要注意少做影响回流的操作即可。
+
+读写分离指的是什么?
+
+读写分离就是对所有【读】几何属性的操作和所有让元素产生回流的【写】操作进行调度，让它们**各自**一起完成。
+
+[fastDom](https://github.com/wilsonpage/fastdom)就是简化读写分离的库。
+
+使用方式是很简单：
+
+```js
+fastdom.measure(function() {
+  var top = movers[m].offsetTop;
+  fastdom.mutate(function() {
+    mover.setLeft(movers[m], top);
+  });
+});
+```
+
+只需要将读的操作放在 `fastdom.measure`里，写的操作放在`fastdom.mutate`里即可。
+
+### 直接读写和使用 fastDom 读写的对比
+
+这里用 chrome 提供的 FPS 测量工具对比一下两种代码结构下的页面 fps 性能。
+
+> 打开 devTools 工具，按快捷键 command+shift+p 后搜索 frame，找到 Show frame per second(FPS) meter 即可打开 FPS 测量工具
+
+**直接读写的 fps 值**
+
+![image-20221122100134570](../../assets/Nov-22-2022 14-50-13.gif)
+
+fps 大概在 31-35 之间，小球滑动表现较为卡顿
+
+**使用 fastDom 后的 fps 值**
+
+![image-20221122100134570](../../assets/Nov-22-2022 14-52-19.gif)
+
+fps 在 60 左右，小球滑动表现较为平滑
+
+## 【第二弹】：防抖节流与 rAF
+
+大量频繁的操作会消耗性能，比如在 input 中输入内容的同时发送请求。
+
+相信前端工程师们都知道这种情况下可以使用防抖和节流。
+
+但本节的重点并非仅仅如此，而是另一个 JS 动画 API—— requestAnimationFrame。
+
+> 关于防抖和节流的代码和分析，在这里也贴一下作为复习巩固之用
+>
+> 简介：[手写防抖节流](https://github.com/18888628835/Interview/issues/12)
+>
+> 细节：[手写防抖和节流](https://github.com/18888628835/Blog/issues/42)
+
+requestAnimationFrame 是标准的动画时序，它的语法是这样的：
+
+```js
+let requestId = requestAnimationFrame(callback);
+```
+
+callback 会在浏览器每次重绘的最近时间运行。
+
+如果我们在 callback 中对元素进行变化，这些变化将与其他`requestAnimationFrame`回调和 CSS 动画组合在一起。因此只会有一次几何重新计算和重绘，而不是多次。
+
+rAF 设计的初衷就是给开发者用来进行时间调度的，我们可以将对元素产生变化的操作放在 rAF 中统一调度，这样有助于提高浏览器渲染的效率。
+
+用代码示例来解释一下：
+
+```html
+<body>
+  <style>
+    .container {
+      width: 200px;
+      height: 200px;
+      overflow: hidden;
+      display: inline-block;
+    }
+  </style>
+  <div id="test"></div>
+  <script>
+    function changeWidth(rand) {
+      const imgs = document.querySelectorAll('img');
+      for (let img of imgs) {
+        img.style.width = (Math.sin(rand / 1000) + 1) * 200 + 'px';
+      }
+    }
+
+    const createElements = function() {
+      let html = '';
+      for (let i = 0; i < 1000; i++) {
+        html += `<div class="container">
+          <img src="./dp.png" alt="" />
+        </div>`;
+      }
+      test.innerHTML = html;
+    };
+    createElements();
+
+    window.addEventListener('pointermove', e => {
+      changeWidth(e.clientX);
+    });
+  </script>
+</body>
+```
+
+上面的代码会生成非常多的图片，当鼠标移动时，会慢慢将图片放大，效果如下：
+
+![Nov-22-2022 21-29-24](../../assets/Nov-22-2022 21-29-24.gif)
+
+可以看到在`pointermove`事件执行时，大量的 DOM 回流导致页面明显卡顿。
+
+为了优化它，这里加入 requestAnimationFrame API。它会在 layout 和 paint 之前执行且它会将所有 DOM 回流的几何运算组合到一起，这样就只会有一次重新运算和回流重绘。
+
+让我们加入代码：
+
+```js
+window.addEventListener('pointermove', e => {
+  // changeWidth(e.clientX);
+  requestAnimationFrame(() => {
+    changeWidth(e.clientX);
+  });
+});
+```
+
+现在查看结果：
+
+![Nov-22-2022 21-43-16.gif](../../assets/Nov-22-2022 21-43-16.gif)
+
+问题得到了解决。
+
+不过我们再次审视一下这段代码：
+
+```js
+window.addEventListener('pointermove', e => {
+  requestAnimationFrame(() => {
+    changeWidth(e.clientX);
+  });
+});
+```
+
+当移动 `pointer` 时，`requestAnimationFrame` 会大量执行，我们可以给 `pointermove`增加防抖来节省回调频率。
+
+代码如下：
+
+```js
+let timer = false;
+window.addEventListener('pointermove', e => {
+  // changeWidth(e.clientX);
+  if (timer) return;
+  timer = true;
+  requestAnimationFrame(() => {
+    changeWidth(e.clientX);
+    timer = false;
+  });
+});
+```
+
+最终的结果就是我们不但减少了事件回调的频率，还用 requestAnimationFrame 一次性让所有 DOM 回流，提高了浏览器的渲染效率。
+
+## 【第三弹】：资源压缩与合并
+
+资源的压缩与合并有两个好处：
+
+1. 减少 http 请求数量
+2. 减少 http 请求体积
+
+页面会根据请求过来资源渲染内容，这些资源的数量越多或者体积越大，TTFB 的时间线会被拉长。
+
+举个例子，浏览器同时发出两个请求，其中一个请求拿到的响应是 10 KB 的 html 文件，另一个请求拿到的响应是 10MB 图片，用户如果想看到完整的内容，最终将取决于 10MB 图片响应回来的速度。
+
+短板效应告诉我们，一个桶装的水有多少，取决于它最短的那块板有多长。10MB 的图片就是那块短板。
+
+如果能让图片资源得到压缩，那显然能够提高响应回来的速度。
+
+关于资源的压缩与合并，目前常用的方式还是使用 webpack 在构建时自动对一些文件进行处理。
+
+对于 webpack 如何缩小打包体积，我已经写在以下这篇文章里了。
+
+[如何缩小打包体积](https://qiuyanxi.com/extension/webpack#如何缩小打包体积)
+
+只需要简单的配置即可完成工作。
+
+## 【第四弹】：选择合适的图片格式
 
 优化图片的体积对于网页的效果是显著的，前端开发者需要根据实际情况对不同的图片合理取舍。
 
@@ -110,12 +545,11 @@ webP 是 google 提出来专门为 Web 开发的**旨在加快图片加载速度
 
 ```
 ./cwebp -q 75 login_plane_2.png -o login_plane_2.webp
-复制代码
 ```
 
 - 自动化生成，可以使用 `image-min-webp` 或其他 `webpack` 插件
 
-### 建议兼容方案
+### 兼容方案
 
 比起淘宝的方案，这里有种更简单的方法
 
@@ -444,8 +878,6 @@ export async function getStaticProps() {
 
 当页面构建 DOM 和 CSSOM 树时，如果给 JavaScript 脚本添加上 defer 或者 async 属性，就能够有效解决这种问题。
 
-[浏览器加载页面过程](https://github.com/18888628835/Blog/blob/main/浏览器/浏览器渲染过程.md)
-
 [浏览器加载文档和资源](https://github.com/18888628835/Blog/blob/main/浏览器/浏览器加载文档和资源.md)
 
 ## 8.减少不必要的 DOM 操作
@@ -478,21 +910,3 @@ export async function getStaticProps() {
 单个图片懒加载：[虚拟代理实现图片预加载](https://github.com/18888628835/Blog/blob/main/JavaScript设计模式/单例模式、策略模式、代理模式、发布订阅模式、命令模式、组合模式.md#63-虚拟代理实现图片预加载)
 
 图片列表实现懒加载：[原生实现图片懒加载](https://github.com/18888628835/Blog/issues/48)
-
-## 11.防抖节流
-
-代码：[手写防抖节流](https://github.com/18888628835/Interview/issues/12)
-
-细节：[手写防抖和节流](https://github.com/18888628835/Blog/issues/42)或[掘金-「查漏补缺」手写节流 throttle 和防抖 debounce](https://juejin.cn/post/6906501329209393159)
-
-## 12.网页性能查看器 Lighthouse
-
-Chrome 浏览器的 LightHouse 模块提供性能报告和性能建议的功能。
-
-打开 Dev tools — Lighthouse — generator 即可生成
-
-<img src="../../assets/image-20220307155557157.png" alt="image-20220307155557157" style="zoom:50%;" />
-
-出来报告后，直接查看浏览器给的`OPPORTUNITIES`建议，然后一条一条优化即可
-
-<img src="../../assets/image-20220307155858265.png" alt="image-20220307155858265" style="zoom:50%;" />
