@@ -1099,6 +1099,134 @@ docker compose down
 
 所有容器（包括网络）会停止并被删除。
 
+## 构建 Image 最佳实践
+
+### Sercurity scanning
+
+当已经 build 了一个 Image，我们可以用`docker scan`命令去进行安全性扫描。
+
+> 在执行扫描前必须先登录，执行`docker scan --login`
+
+对某个 image 扫描
+
+```bash
+docker scan <image-name>
+```
+
+当扫描完成后，如果有问题则会输出有问题的地方，并且附上相关的参考资料的链接
+
+### Layer caching
+
+让我们再看一次 Dockerfile 里面的内容：
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY . .
+RUN yarn install --production
+CMD ["node", "src/index.js"]
+```
+
+我们先拷贝了项目里的所有文件，然后再执行 `yarn install`去构建依赖。
+
+每次 build 新的 image 都会重新执行 `yarn install`去生成 `node_modules`里的文件。
+
+这就意味着项目里的 `node_modules`和`yarn install`后的依赖文件是相同的。
+
+那我们仅仅先将 `package.json`和`lock`文件拷贝到容器中，让它先自行 `install`所有依赖，然后把本地项目中非`node_modules`的文件都拷贝进容器当中，这样就能节省下大量的 `build image`的时间了。
+
+1. 首先，重构 Dockerfile，先拷贝 package.json，再执行`yarn install`,最后拷贝其余的文件
+
+   ```dockerfile
+   FROM node:18-alpine
+    WORKDIR /app
+    COPY package.json yarn.lock ./
+    RUN yarn install --production
+    COPY . .
+    CMD ["node", "src/index.js"]
+   ```
+
+2. 在`Dockerfile`同一文件夹下创建`.dockerignore`文件,文件内容如下：
+
+   ```dockerfile
+   node_modules
+   ```
+
+   在 `.dockerignore`文件内的东西会被忽略，不会被 build。
+
+3. build 一个新的 Image
+
+   ```bash
+   docker build -t getting-started .
+   ```
+
+   我们应该能看到类似的输出：
+
+   ```bash
+   [+] Building 16.1s (10/10) FINISHED
+    => [internal] load build definition from Dockerfile
+    => => transferring dockerfile: 175B
+    => [internal] load .dockerignore
+    => => transferring context: 2B
+    => [internal] load metadata for docker.io/library/node:18-alpine
+    => [internal] load build context
+    => => transferring context: 53.37MB
+    => [1/5] FROM docker.io/library/node:18-alpine
+    => CACHED [2/5] WORKDIR /app
+    => [3/5] COPY package.json yarn.lock ./
+    => [4/5] RUN yarn install --production
+    => [5/5] COPY . .
+    => exporting to image
+    => => exporting layers
+    => => writing image     sha256:d6f819013566c54c50124ed94d5e66c452325327217f4f04399b45f94e37d25
+    => => naming to docker.io/library/getting-started
+   ```
+
+4. 随便修改项目文件里面的代码,再重新执行`docker build -t getting-started .`。会看到以下输出：
+
+   ```bash
+   [+] Building 1.2s (10/10) FINISHED
+    => [internal] load build definition from Dockerfile
+    => => transferring dockerfile: 37B
+    => [internal] load .dockerignore
+    => => transferring context: 2B
+    => [internal] load metadata for docker.io/library/node:18-alpine
+    => [internal] load build context
+    => => transferring context: 450.43kB
+    => [1/5] FROM docker.io/library/node:18-alpine
+    => CACHED [2/5] WORKDIR /app
+    => CACHED [3/5] COPY package.json yarn.lock ./
+    => CACHED [4/5] RUN yarn install --production
+    => [5/5] COPY . .
+    => exporting to image
+    => => exporting layers
+    => => writing image     sha256:91790c87bcb096a83c2bd4eb512bc8b134c757cda0bdee4038187f98148e2eda
+    => => naming to docker.io/library/getting-started
+   ```
+
+   我们能看到一些步骤里 Docker 用了上一个缓存过的的 layers。这也是第二次 build 的速度非常快的原因。
+
+### React example
+
+当构建 React 项目时，我们需要 Node 环境去编译 JS 代码、sass 样式表还有一些静态 HTML、JS、和 CSS 等代码。如果我们不需要做服务端渲染，我们甚至不需要 node 环境去构建我们的生产版本。
+
+为什么不在 Nginx 容器中运行静态的资源？
+
+```dockerfile
+FROM node:18 AS build
+WORKDIR /app
+COPY package* yarn.lock ./
+RUN yarn install
+COPY public ./public
+COPY src ./src
+RUN yarn run build
+
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+```
+
+这里，我们用 Node:18 image 去 build（充分利用 layer caching），然后把输出拷贝到 nginx 容器中。
+
 ## Docker 基础组件
 
 安装使用 Docker，得运行 Docker Daemon 进程，用于管理 docker，如：
