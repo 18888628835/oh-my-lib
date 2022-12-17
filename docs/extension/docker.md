@@ -57,20 +57,31 @@ Docker daemon 负责做各种 docker 操作，比如下载镜像、运行容器�
 
 daemon 也可以跟 Registry 交互。Registry 是 docker 使用者分享镜像用的。
 
-## container 是什么
+## Docker 四大组成对象
 
-简单来说，容器（container）是我们的计算机上的一个进程，已与主机上的所有其他进程隔离。
+Docker 体系中，有四大组成对象（Object），所有的 Docker 的功能以及周边生态都围绕它们展开，他们分别是：镜像(Image)、容器(Container)、网络(Network )、数据卷(Volume)。
+
+### Container 是什么
+
+简单来说，容器（container）是我们的计算机上的一个进程，已与主机上的所有其他进程隔离。在 Docker 里，它也被引申为隔离出来的虚拟环境。
+
+如果把镜像理解成类，那么容器就是类的实例。镜像内放的是不可变化的东西，当以它们为基础的容器启动后，容器内也就成了一个活的空间。
 
 容器的特点：
 
 1. 是一个镜像（image）的可运行实例。我们可以创建、启动、停止、移动或者删除容器
+
 2. 可以运行在本地机、虚拟机或者部署到云上。
+
 3. 可移植的，能够被任何操作系统运行
+
 4. 容器之间互相隔离，运行他们自己的软件、二进制文件和配置
 
-## images 是什么
+### images 是什么
 
-当运行一个容器时，它会使用一个隔离的文件系统。这个自定义的文件系统是容器镜像（image）提供的。因为镜像包含了容器的文件系统，所以它必须包含运行应用程序所需的所有东西——所有依赖项、配置、脚本、二进制文件等等。该映像还包含容器的其他配置，例如环境变量、要运行的默认命令和其他元数据。
+当运行一个容器时，它会使用一个隔离的文件系统，这个自定义的文件系统是镜像（Image）提供的。可以理解成 Image 是一个只读的文件包，它包含了虚拟环境运行最原始文件系统的内容。
+
+镜像包含了容器的文件系统，所以它必须包含运行应用程序所需的所有东西——所有依赖项、配置、脚本、二进制文件等等。该映像还包含容器的其他配置，例如环境变量、要运行的默认命令和其他元数据。
 
 使用以下命令行可以查看镜像列表
 
@@ -80,23 +91,40 @@ docker image ls
 
 当然，也可以通过 `docker` 桌面端查看。
 
+### Network 是什么
+
+容器和容器之间是需要交互的，这里的交互大多数情况指的是数据信息交换。
+
+Network 是 Docker 中非常强大的功能，我们能够用它对各个容器之间的网络进行配置，还可以在容器之间建立虚拟网络，将数个容器包括在内，同时与其他网络环境隔离。
+
+另外，Docker 能够在容器中营造独立的域名解析环境，这使得我们可以在不修改代码和配置的前提下直接迁移容器。
+
+### Volume 是什么
+
+除了网络外，文件也是重要的数据交互的资源。我们通常会利用虚拟机或者容器的文件系统作为应用数据等文件的存储位置。然而这种方法并非是完全安全的，因为当容器或者虚拟机出现问题导致文件系统无法使用时，之前存放的数据也就消失了。
+
+为了保证数据的独立性，我们可以把宿主机的文件目录挂载到容器的文件目录中，还可以建立一个独立的目录持久存放数据，或者在容器之间共享。
+
+这几种方式进行的持久化数据，我们称之为数据卷(Volume)。
+
 ## Docker 常用命令
 
 ### 概览
 
-| 命令          | 用途                              |
-| ------------- | --------------------------------- |
-| docker pull   | 获取 image                        |
-| docker build  | 创建 image                        |
-| docker images | 列出 image                        |
-| docker run    | 创建并运行 container              |
-| docker ps     | 列出 container                    |
-| docker rm     | 删除 container                    |
-| docker rmi    | 删除 image                        |
-| docker cp     | 在 host 和 container 之间拷贝文件 |
-| docker commit | 保存改动为新的 image              |
+| 命令            | 用途                                    |
+| --------------- | --------------------------------------- |
+| docker pull     | 获取 image                              |
+| docker build    | 创建 image                              |
+| docker images   | 列出 image                              |
+| docker run      | 从 image 创建并运行 container           |
+| docker ps       | 罗列正在运行的 container，-a 罗列出所有 |
+| docker rm       | 删除 container                          |
+| docker rmi      | 删除 image                              |
+| docker cp       | 在主机 和 container 之间拷贝文件        |
+| docker commit   | 保存改动为新的 image                    |
+| docker exec -it | 进入容器并让容器运行我们给出的命令      |
 
-### 获取 image
+### docker pull
 
 可以通过https://hub.docker.com/访问线上的镜像，比如版本号、镜像名、功能等，再通过 docker pull 命令在本地终端拉取镜像库里的镜像。
 
@@ -115,7 +143,9 @@ image 就相当于一个模板，运行 image 可以产生一个容器。
 
 **建议在使用镜像时指定版本**，因为默认的 latest 是滚动更新的，现在下载的 latest 版本过一段时间就不一定是最新的版本了，所以会造成混淆，弄不清到底是哪个版本。
 
-### 查看本地所有 images（镜像）
+### docker images
+
+查看本地所有 images（镜像）
 
 ```bash
 docker images
@@ -123,13 +153,25 @@ docker images
 
 ![image-20221126110724414](../assets/image-20221126110724414.png)
 
-### 查看本地所有容器
+### docker ps
+
+查看本地所有容器
 
 ```bash
 docker ps -a
 ```
 
-### run container
+查看本地正在运行的容器
+
+```bash
+docker ps
+```
+
+或者打开 Docker Desktop 可视化地看到机器上已经运行的容器。
+
+![image-20221126113644843](../assets/image-20221126113644843.png)
+
+### docker run
 
 docker 上创建并运行一个容器的命令示例
 
@@ -148,7 +190,9 @@ Status: Downloaded newer image for mysql:latest
 
 > **每次运行 docker run xxx 都会产生一个新的容器，如果没有指定容器的名称则默认生成**
 
-### 查看容器详细信息
+### docker inspect
+
+查看容器详细信息
 
 ```bash
 docker inspect <Container ID>
@@ -156,7 +200,7 @@ docker inspect <Container ID>
 
 通过这个命令可以看到容器的详细信息，比如端口号，ip 地址等。
 
-### 运行 mysql 容器
+### 运行 mysql 容器示例
 
 以下为运行 mysql:5.7.28 的 docker 命令示例 (来自 [dockerhub-mysql](https://hub.docker.com/_/mysql)官方文档)
 
@@ -212,38 +256,35 @@ docker run -it --rm mysql:5.7.28 mysql -h172.17.0.2 -uroot -p
 
 最后输入密码，即可访问之前创建的 local-mysql 的容器。
 
-### 查看正在运行的容器
+### docker stop
 
-```bash
-docker ps
-```
-
-或者打开 Docker Desktop 可视化地看到机器上已经运行的容器。
-
-![image-20221126113644843](../assets/image-20221126113644843.png)
-
-### 停止容器
+停止容器
 
 ```bash
 docker stop <Container ID>
 ```
 
-### 启动已经存在的容器
+### docker start
+
+启动已经存在的容器
 
 ```bash
 docker start <Container ID>
 ```
 
-### 用交互模式在容器中输入命令
+### docker exec -it
+
+与 docker 容器的交互命令模式下，在 container 中使用 bash
 
 ```bash
--- 交互模式下，在 container 中使用 bash
 docker exec -it <Container name> /bin/bash
 -- 退出
 exit
 ```
 
-### 将主机上的文件拷到容器中
+### docker cp
+
+将主机上的文件拷到容器中
 
 ```bash
 docker cp <host-file-path> <Container ID>:<Container path>
@@ -258,13 +299,17 @@ echo -e "# this is mysql configuration file" >> mysql-config.cnf
 docker cp ~/Desktop/mysql-config/mysql-config.cnf 47dbc3b110cf:/etc/mysql/conf.d/mysql-config.cnf
 ```
 
-### 删除容器
+### docker rm
+
+删除容器
 
 ```bash
 docker rm <Container ID>
 ```
 
-### 删除 image
+### docker rmi
+
+删除 image
 
 ```bash
 docker rmi <Image ID>
@@ -292,7 +337,7 @@ Docker 会创建三个网络：
 
 - none 禁用容器中所用网络，在启动容器中使用
 
-### 自定义网络
+### 创建自定义网络
 
 桥接网络下，不推荐使用 ip 访问，那么能通过什么访问呢？可以使用用户自定义网络。
 
@@ -301,17 +346,40 @@ Docker 会创建三个网络：
 - 容器之间可以使用容器名互相访问
 - 使用 Docker 的嵌入式 DNS 服务器将容器名解析成 IP
 
-**创建网络**
+创建网络
 
 ```bash
 docker network create <NetWork Name>
 ```
 
-**容器连接到自定义网络**
+容器连接到自定义网络
 
 ```bash
 docker network connect <NetWork Name> <Container Name>
 ```
+
+以之前创建的 local-mysql 为例，将该容器连接到自定义网络
+
+```bash
+docker network connect my-net local-mysql
+```
+
+现在可以创建新的 mysql 客户端，通过自定义网络而不是 ip 访问 local-mysql 容器
+
+```bash
+-- 通过 ip 访问
+docker run -it --rm mysql:5.7.28 mysql -h172.17.0.2 -uroot -p
+-- 通过 network 访问
+docker run -it --rm --network my-net mysql:5.7.28 mysql -hlocal-mysql  -uroot -p
+```
+
+创建容器时可以通过`--network`用来指定新容器加入到已有网络中。
+
+> 当在创建容器时使用了自定义网络，那么该容器将不再连接默认的 bridge 网络。
+
+### 管理网络
+
+通过`docker inspect <container>`查看容器有关网络的信息，
 
 以之前创建的 local-mysql 为例，将该容器连接到自定义网络
 
@@ -332,36 +400,100 @@ docker network connect my-net local-mysql
             }
 ```
 
-现在可以创建新的 mysql 客户端，通过自定义网络而不是 host 访问 local-mysql 容器
+上面是连接了自定义网络的容器的 inspect 信息，可以看到有两个网络，一个是默认的桥接网络，另一个是由我们创建的自定义网络。
+
+### 容器间互联
+
+Docker 提倡轻量级容器的理念，所以容器中通常只包含一种应用程序。
+
+但拿最简单的 Web 应用为例，至少我们需要业务应用、数据库应用、缓存应用等组成一个完整的系统。
+
+这些应用的通讯方式以网络为主，所以打通容器间的网络，才能让它们互相通信。
+
+要让一个容器连接到另外一个容器，我们可以在容器`create`或者`run`创建时通过`--link`选项进行配置。
+
+例如，下面创建一个 MySQL 容器，将运行我们 Web 应用的容器连接到这个 MySQL 容器上，打通两个容器间的网络，实现他们之间的网络互通。
 
 ```bash
--- 之前的命令
-docker run -it --rm mysql:5.7.28 mysql -h172.17.0.2 -uroot -p
--- 之后的命令
-docker run -it --rm --network my-net mysql:5.7.28 mysql -hlocal-mysql  -uroot -p
+docker run -d --name mysql -e MYSQL_RANDOM_ROOT_PASSWORD=yes mysql
+docker run -d --name webapp --link mysql webapp:latest
 ```
 
-> 当在创建容器时使用了自定义网络，那么该容器将不再连接默认的 bridge 网络。
+现在名为`webapp`的容器已经和名为`mysql`的容器互相连接成功。
 
-## Docker 存储
+然后我们在`webapp`中可以通过 `mysql`这个容器名来访问 `mysql` 数据库啦。
+
+`host configure`就可以设置为:`mysql`。
+
+同时还可以指定一个别名来替代容器名，语法是`--link <container name>:<alias>`
+
+```bash
+docker run -d --name webapp --link mysql:database webapp:latest
+```
+
+`host configure`就可以设置为：`database`
+
+不管是自定义网络还是`--link`方式实现容器间的互联，都只需要配置被连接容器的别名，Docker 就能够帮助我们自动映射 IP，我们不需要知道容器的 IP 地址就能进行连接。
+
+### 暴露端口
+
+Docker 为容器网络增加了一套安全机制，只有容器自身允许的端口，才能被其他容器所访问。
+
+这个容器自我标记端口可被访问的过程，我们称之为暴露端口。
+
+端口的暴露可以通过 Dockerfile 定义，也可以在容器创建时定义。
+
+在容器创建时定义时借助`--expose`这个选项
+
+```bash
+docker run -d --name mysql -e MYSQL_RANDOM_ROOT_PASSWORD=yes --expose 13306 --expose 23306 mysql:latest
+```
+
+上面的命令在创建 mysql 容器时，暴露了 13306 和 23306 的端口。
+
+通过 `docker ps`可以看到两个端口已经成功的打开。
+
+![image-20221212221118536](../assets/image-20221212221118536.png)
+
+mysql 默认打开端口是 3306 和 33060，我们又额外暴露出 13306 和 23306 两个端口。
+
+暴露了端口只是类似于打开了容器的防火墙，具体能不能通过这个端口访问容器中的服务，还需要容器中的应用监听并处理来自这个端口的请求。
+
+### 端口映射
+
+Docker 的端口映射提供了一种从容器外访问容器内应用的功能。
+
+![img](https://p1-jj.byteimg.com/tos-cn-i-t2oaga2asx/gold-user-assets/2018/9/23/16605128077de72a~tplv-t2oaga2asx-zoom-in-crop-mark:3024:0:0:0.awebp)
+
+通过 Docker 端口映射，我们可以把容器的端口映射到宿主机操作系统的端口上，当我们从外部访问宿主机的端口时，数据请求会自动发送到与之关联的容器端口上。
+
+要映射端口，我们可以使用`-p`选项。
+
+```bash
+docker run -d --name nginx -p 80:80 -p 443:443 nginx:1.12
+```
+
+映射端口的格式是`-p <host-port>:<container-port>`。
+
+## Docker 数据存储
 
 将数据存储在容器中，一旦容器被删除，数据也会被删除。同时也会使容器变得越来越大，不方便恢复和迁移。
 
 将数据存储在容器之外，这样删除容器也不会丢失数据。一旦容器故障，我们还可以重新创建一个容器，将数据挂载到容器中，就可以快速恢复数据。
 
-Docker 的数据存储有三种形式：
+Docker 的数据存储提供了三种应对不同场景的文件系统挂载方式：
 
-1. volumn 卷
+1. **bind mount 绑定挂载**
 
-   volumn 是 Docker 中持久保存数据的最佳方式。它存储在主机文件系统分配的一块专有存储区域，由 Docker 管理，并且与主机的核心功能隔离。非 Docker 进程不能修改文件系统的这一部分。
+   **bind mount** 能够直接将宿主操作系统中的目录和文件挂载到容器内的文件系统中，通过**指定容器外的路径和容器内的路径**，就可以形成挂载映射关系，在容器内外对文件的读写，都是相互可见的。
 
-2. bind mount 绑定挂载
+2. **volumn 卷**
 
-   绑定挂载 可以将主机文件系统目录或者文件装载到容器中，但是主机上的非 Docker 进程可以修改它们，同时在容器中也可以更改主机文件系统，包括创建、修改或者删除目录，使用不当可能会带来安全隐患。
+   **Volume** 也是从宿主操作系统中挂载目录到容器内，只不过这个挂载的目录由 Docker 管理，并且与主机的核心功能隔离。非 Docker 进程不能修改文件系统的这一部分。我们只需要**指定容器内的目录**，不需要关心具体挂载到宿主机的哪个位置。
 
-3. tmpfs 临时挂载
+3. **tmpfs 临时挂载**
 
-   tmpfs 挂载仅存储在主机系统的内存中，从不写入主机系统的文件系统。当容器停止时，数据将被删除。
+   **tmpfs** 支持挂载系统内存中的一部分到容器的文件系统里，不过由于内存和容器的特征，它的存储并不是持久的，其中的内容会随着容器的停止而消失。
 
 ### bind mount 绑定挂载
 
@@ -370,18 +502,30 @@ Docker 的数据存储有三种形式：
 - 将配置文件从主机共享到容器
 - 在 Docker 主机上的开发环境和容器之间共享源代码或者编译目录
 
+要将宿主机中的目录挂载到容器的某个目录中，我们可以在容器创建时通过传递`-v`选项来指定内外挂载的对应目录或文件。
+
+主要形式是：
+
+```bash
+-v <host-path>:<container-path>
+```
+
+这里的 path 只能使用绝对路径，不能使用相对路径。
+
+同时，Docker 还支持以只读的方式挂载，通过只读方式挂载的目录或者文件，只能被容器中的程序读取，但不接受容器中程序修改它们的请求。在挂载选项`-v`后接上`:ro`就可以只读挂载了。
+
 以 mysql 为例，参考 https://hub.docker.com/_/mysql 提供的命令示例。
 
 下面是使用在容器中使用一个新的 `mysql configuration file`
 
 ```bash
-docker run --name some-mysql -v ~/desktop/mysql-config/mysql-config.cnf:/etc/mysql/conf.d/mysql.cnf \
+docker run --name some-mysql -v ~/desktop/mysql-config/mysql-config.cnf:/etc/mysql/conf.d/mysql.cnf:ro \
 -v ~/desktop/mysql/data:/var/lib/mysql \
 -e MYSQL_ROOT_PASSWORD=123456 -d mysql:5.7.28
 ```
 
 - `-v` —— 绑定挂载使用`-v`参数将主机上的目录或者文件装载到容器中。绑定挂载会覆盖容器中的目录和文件。
-- `~/desktop/mysql-config/mysql-config.cnf:/etc/mysql/conf.d/mysql.cnf` 将冒号前面的主机的自定义配置文件的路径映射到冒号后面容器中的 mysql.cnf 的路径，以此来修改 docker-mysql 的配置文件。同时，修改了主机的配置文件会同步反映到容器中
+- `~/desktop/mysql-config/mysql-config.cnf:/etc/mysql/conf.d/mysql.cnf:ro` 将冒号前面的主机的配置文件的路径映射到冒号后面容器中的 mysql.cnf 的路径，以此来修改 docker-mysql 的配置文件。加入`:ro`后表示只读，容器内程序不能修改，但宿主机还是可以改的。
 - `~/desktop/mysql/data:/var/lib/mysql` 把冒号后面 mysql 容器存储数据的地方映射到冒号前面宿主机的存储文件中。如果宿主机的目录是不存在的，那么 docker 会自动创建这个目录。但是 docker 只自动创建文件夹，不会创建文件。
 
 > 以上有关容器的路径地址均来自 https://hub.docker.com/_/mysql 官方文档
@@ -399,13 +543,33 @@ docker run --name some-mysql -v ~/desktop/mysql-config/mysql-config.cnf:/etc/mys
 
 **这时候在主机上修改内容，然后去容器里面看，配置文件会同步变更。**
 
-以下是我本地修改后查询出来的结果
+以下是我在宿主机上修改后，到容器内敲命令查询出来的修改后的文件的内容。
 
 ```bash
 $ root@0727fc097470:/# cat /etc/mysql/conf.d/mysql.cnf
 # this is mysql configuration file
 ## I have write something in this file
 ```
+
+通过`docker inspect`查询一下挂载的信息：
+
+```bash
+    "Mounts": [
+        {
+            "Type": "bind",
+            "Source": "/Users/qiuyanxi/desktop/mysql-config/mysql-config.cnf",
+            "Destination": "/etc/mysql/conf.d/mysql.cnf",
+            "Mode": "ro",
+            "RW": false,
+            "Propagation": "rprivate"
+        }
+        ...
+    ],
+```
+
+`Type` 为 `bind`，说明我们用的是`bind mount`。
+
+`RW`为`false`，说明挂载的文件是只读的。
 
 ### volume
 
@@ -431,11 +595,280 @@ docker run --name some-mysql -v ~/desktop/mysql-config/mysql-config.cnf:/etc/mys
 -e MYSQL_ROOT_PASSWORD=123456 -d mysql:5.7.28
 ```
 
+`-v`选项既可以定义 `Bind Mount`，又参与定义了 `Volume`。
+
+为了避免与数据卷挂载中的命名产生冲突，使用`-v`定义`bind mount`时必须使用绝对路径。
+
+> 使用`-v`选项挂载数据卷时，如果数据卷不存在，Docker 会自动创建并分配宿主机的内存目录，如果已经存在，则会直接引用。
+
 **查看卷的信息：**
 
 ```bash
 docker inspect <VOLUME NAME>
 ```
+
+```bash
+[
+    {
+        "CreatedAt": "2022-12-13T13:47:35Z",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/19dac8cbff2da5d135463e636bc75dda1f0a221216182880d6382540056c535f/_data",
+        "Name": "19dac8cbff2da5d135463e636bc75dda1f0a221216182880d6382540056c535f",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+```
+
+或者通过`docker inspect <Container ID>`也能够查看到 `volume` 挂载的信息
+
+```bash
+       "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "92efce8c9f9b74eda3c855e098e7fd0f8f769fbb891697530d0a022064a58821",
+                "Source": "/var/lib/docker/volumes/92efce8c9f9b74eda3c855e098e7fd0f8f769fbb891697530d0a022064a58821/_data",
+                "Destination": "/var/lib/mysql",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+```
+
+`Source` 字段表示 Docker 为我们分配的用于挂载的宿主机的目录。
+
+### tempfs 临时挂载
+
+Tmpfs Mount 是一种特殊的挂载方式，它主要利用内存来存储数据。由于内存不是持久性的存储设备，所以 Tempfs Mount 的特点就是临时性挂载。
+
+挂载临时目录用到`--tmpfs`这个选项。由于内存的具体位置不需要我们指定，所以这个选项里我们只需要挂载到容器内的目录即可。
+
+```bash
+docker run -d --name webapp --tmpfs <container-path> webapp:latest
+```
+
+## Dockerfile 常用指令
+
+Dockerfile 是 Docker 中用于定义镜像自动化构建流程的配置文件，在 Dockerfile 中，包含了构建**镜像**过程中需要执行的命令和其他操作。
+
+以官方 getting-started 给的示例为例，总体结构是这样的：
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY . .
+RUN yarn install --production
+CMD ["node", "src/index.js"]
+EXPOSE 3000
+```
+
+### **From**
+
+用来指定基础镜像，让 Docker 能够在这个镜像的基础上进行构建的操作。
+
+基础镜像是构建新镜像的根本，Dockerfile 的第一条命令必须是 From 指令。
+
+From 指令支持三种形式
+
+```dockerfile
+FROM <image> [AS <name>]
+FROM <image>[:<tag>] [AS <name>]
+FROM <image>[@<digest>] [AS <name>]
+```
+
+一个 Dockerfile 可以有多个 From 指令，当 From 指令第二次出现时，表示在此刻构建时，要将当前镜像的内容合并到即将构建的镜像的内容里。
+
+官方也给了一个示例，将前端打包的内容存到 nginx 里
+
+```dockerfile
+FROM node:18 AS build
+WORKDIR /app
+COPY package* yarn.lock ./
+RUN yarn install
+COPY public ./public
+COPY src ./src
+RUN yarn run build
+
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+```
+
+### **Run**
+
+Run 指令用于向控制台发送命令。
+
+在 Run 指令后，我们直接拼接上需要执行的命令，在构建时，Docker 就会执行这些命令。
+
+```dockerfile
+RUN <command>
+RUN ["executable", "param1", "param2"]
+```
+
+Run 指令支持\换行，如果单行长度过长，建议对内容进行分割，方便阅读。
+
+### **CMD**
+
+基于镜像的容器，在容器启动后会根据 CMD 定义的内容来执行一个命令。
+
+格式是这样的：
+
+```dockerfile
+CMD ["executable","param1","param2"]
+CMD ["param1","param2"]
+CMD command param1 param2
+```
+
+### **EXPOSE**
+
+为镜像指定要暴露的端口。
+
+### **Volume**
+
+在构建镜像时，可以先定义一个数据卷，在基于此镜像`run`一个容器时，自动建立数据卷，不需要使用容器的人手动使用`-v`去指定数据卷。
+
+### **COPY 和 ADD**
+
+在制作镜像时，我们可能需要一些软件配置、程序代码等直接导入到镜像内的文件系统中，次用 COPY 或 ADD 指令能帮助我们直接从宿主机里拷贝内容到镜像中。
+
+格式是这样的：
+
+```dockerfile
+COPY <src> <dest>
+ADD <src> <dest>
+```
+
+COPY 和 ADD 的区别在于 ADD 支持填入 URL 作为 src 源，并且在源文件被识别为压缩包时，自动进行解压，而 COPY 仅支持没有网络请求或者不希望源文件被解压的场景。
+
+## Docker Compose
+
+现代应用程序由多个应用组成，比如 Web 应用里可能有 Mysql 用来当数据库、Redis 用来做数据缓存。
+
+当开启一个应用容器时，需要先将 Mysql 和 Redis 启动起来，再将应用容器运行起来。同时，我们还需要在创建应用容器时将网络连接到 MySQL 和 Redis 上，以便他们进行数据交换。如果我们对容器进行了各种配置，我们还需要将容器创建和配置的命令保存下来，以便下次可以直接使用。
+
+为了应对上述场景，Docker 推出 Docker-compose 来对容器组合进行管理。
+
+如果说 Dockerfile 能够对容器内运行的环境的搭建固化下来，那么 Docker Compose 就可以理解成将多个容器运行的方式和配置固化到一个 yml 文件中，再通过这个 yml 文件启动多个容器。
+
+### 使用 Docker-compose 的步骤
+
+Docker-compose 的步骤分成三步：
+
+- 如果需要的话，编写容器所需的镜像的 Dockerfile。（也可以不写）
+- 编写用于配置容器的 docker-compose.yml 描述文件
+- docker-compose 命令启动应用
+
+### 常用 Docker Compose 配置项
+
+以一个 Docker Compose 文件为例：
+
+```yaml
+services:
+  redis:
+    image: redis:3.2
+    networks:
+      - backend
+    volumes:
+      - ./redis/redis.conf:/etc/redis.conf:ro
+    ports:
+      - '6379:6379'
+    command: ['redis-server', '/etc/redis.conf']
+
+  database:
+    image: mysql:5.7
+    networks:
+      - backend
+    volumes:
+      - ./mysql/my.cnf:/etc/mysql/my.cnf:ro
+      - mysql-data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=my-secret-pw
+    ports:
+      - '3306:3306'
+
+  webapp:
+    build: ./webapp
+    networks:
+      - frontend
+      - backend
+    volumes:
+      - ./webapp:/webapp
+    depends_on:
+      - redis
+      - database
+
+  nginx:
+    image: nginx:1.12
+    networks:
+      - frontend
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./webapp/html:/webapp/html
+    depends_on:
+      - webapp
+    ports:
+      - '80:80'
+      - '443:443'
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  mysql-data:
+```
+
+1. 定义服务
+
+   Docker Compose 中一个服务对应一个容器，redis、database、webapp、nginx 就是服务的名称。对服务的定义跟之前的创建和启动容器非常相似，Docker Compose 会从配置文件中读取出这些内容，帮助我们创建和管理这些容器。
+
+2. 指定镜像
+
+   容器的基础就是镜像，所以每个服务需要指定镜像。
+
+   我们可以通过两种方式指定镜像，一种是通过 image 配置，这个非常简单，只需要能给出在 `Docker Hub` 中找到的镜像的名称即可。
+
+   另外一种是直接采用 Dockerfile 来构建镜像，通过 `build` 这个配置我们能够定义构建的环境目录，相当于执行`docker build`。如果我们用这个方式指定镜像，那么 Docker-Compose 会先执行镜像的构建，再通过这个镜像启动容器。
+
+   下面是一个常用的 `build`选项的配置
+
+   ```yaml
+   webapp:
+     build:
+       context: ./webapp
+       dockerfile: webapp-dockerfile
+       args:
+         - JAVA_VERSION=1.6
+   ```
+
+   `context`表示路径，`dockerfile` 表示 Dockerfile 的文件名,`args`表示构建的参数。
+
+   `command`配置能够指定基于该镜像启动容器时执行的命令，相当于替代 Dockerfile 中的 CMD
+
+   `environment`配置则是环境变量，例如例子中给 MySQL 设置了初始密码
+
+3. 依赖声明
+
+   如果我们的服务间有非常强的依赖关系、先后顺序关系，就必须告知 Docker Compose 容器的启动顺序。只有当被依赖的容器完全启动后，Docker Compose 才能创建和启动这个容器。
+
+   定义依赖关系是用`depends_on`这个配置项。
+
+4. 文件挂载和数据卷
+
+   文件挂载和数据卷都用`volumes`字段指定，区别在于一个是使用文件的路径，一个是使用卷的名字。
+
+   在开发时，推荐将代码挂载到容器里，这样在代码修改后，容器内也可以马上做出反应。
+
+   Docker Compose 也能够自动完成对数据卷的创建，在上面的例子中，独立于 services 的 volumes 配置是用来声明数据卷的。使用数据卷则是在`services`的`volumes`里用`<Volume Name>:<Container dataStorage>`这种形式定义。
+
+5. 端口映射
+
+   在 Docker Compose 的每个服务配置里，我们还看到了 `ports` 这个配置项，它是用来定义端口映射的。
+
+   在 `Docker CLI`中相当于`-p`选项，用来指定宿主机和容器中的端口映射。
 
 ## Build an Application
 
@@ -892,7 +1325,7 @@ docker run -dp 3000:3000 \
   sh -c "yarn install && yarn run dev"
 ```
 
-下面是针对以上命令书写 Dockerfile 脚本列表的步骤
+下面是针对以上命令书写 docker-compose 脚本列表的步骤
 
 1. 为容器定义一个 image。
 
@@ -940,9 +1373,9 @@ docker run -dp 3000:3000 \
          - ./:/app
    ```
 
-   `./:/app`是将 Dockerfile 所在的文件夹中的所有内容与容器中的`/app`目录做 volume 绑定。
+   `./:/app`是将 docker-compose 所在的文件夹中的所有内容与容器中的`/app`目录做 volume 绑定。
 
-   > 用 Dockerfile 的好处是可以使用相对路径。
+   > 用 docker-compose 的好处是可以使用相对路径。
 
 5. 指定 MySQL 的环境变量
 
@@ -1226,14 +1659,3 @@ COPY --from=build /app/build /usr/share/nginx/html
 ```
 
 这里，我们用 Node:18 image 去 build（充分利用 layer caching），然后把输出拷贝到 nginx 容器中。
-
-## Docker 基础组件
-
-安装使用 Docker，得运行 Docker Daemon 进程，用于管理 docker，如：
-
-- 镜像 images —— 我们将应用程序所需的环境，打包为镜像文件
-- 容器 container ——应用程序跑在 container 中。容器是基于镜像运行的
-- 镜像仓库 docker hub —— 提供保存、下载、上传镜像文件的仓库，类似于 github
-- Dockerfile ——将部署项目的操作写成一个部署脚本，这个脚本就是 Dockerfile，且该脚本还能够构建出镜像文件。
-- 网络 network ——
-- 数据卷 Data volumes ——
