@@ -9,7 +9,6 @@ const nav = [
       { title: '设计模式', path: '/design-pattern' },
       { title: 'HTTP', path: '/http' },
       { title: 'Node', path: '/node' },
-
       { title: 'Vue3原理', path: '/vue3' },
       { title: '前端测试', path: '/test' },
     ],
@@ -19,16 +18,16 @@ const nav = [
     path: '/extension',
     children: [
       { title: '前端可视化', path: '/extension/前端可视化' },
-      { title: '前端性能优化', path: '/extension/前端性能优化' },
+      { title: '前端性能优化', path: '/前端性能优化' },
       { title: '前端工程化', path: '/extension/前端工程化' },
       { title: 'Webpack', path: '/extension/webpack' },
       { title: 'Babel', path: '/extension/babel' },
-      { title: 'Docker', path: '/extension/docker' },
       { title: 'Git', path: '/extension/git' },
       { title: 'GraphQL', path: '/extension/graphql' },
       { title: 'AWS', path: '/aws' },
       { title: 'Flutter', path: '/flutter' },
       { title: 'MySQL', path: '/mysql' },
+      { title: 'Docker', path: '/docker' },
     ],
   },
 
