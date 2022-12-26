@@ -11,6 +11,7 @@ const nav = [
       { title: 'Node', path: '/node' },
       { title: 'Vue3原理', path: '/vue3' },
       { title: '前端测试', path: '/test' },
+      { title: '前端性能优化', path: '/前端性能优化' },
     ],
   },
   {
@@ -18,7 +19,6 @@ const nav = [
     path: '/extension',
     children: [
       { title: '前端可视化', path: '/extension/前端可视化' },
-      { title: '前端性能优化', path: '/前端性能优化' },
       { title: '前端工程化', path: '/extension/前端工程化' },
       { title: 'Webpack', path: '/extension/webpack' },
       { title: 'Babel', path: '/extension/babel' },

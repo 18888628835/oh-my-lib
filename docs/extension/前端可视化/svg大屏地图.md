@@ -76,7 +76,7 @@ title: SVG大屏地图
 </svg>
 ```
 
-<img src="../../assets/Sep-18-2021 16-22-55.gif" alt="Sep-18-2021 16-22-55" style="zoom:50%;" />
+<img src="../../assets/Sep-18-202116-22-55.gif" alt="Sep-18-2021 16-22-55" style="zoom:50%;" />
 
 左边的矩形由于加了 name，就自动拥有 hover 时高亮的效果，而右边的则没有。
 
@@ -166,7 +166,7 @@ export const Middle = () => {
 
 现在打开浏览看可以查看到效果了，不出意外的话，你可以看到这样的效果
 
-<img src="../../assets/Sep-18-2021 17-54-21.gif" alt="Sep-18-2021 17-54-21" style="zoom:50%;" />
+<img src="../../assets/Sep-18-202117-54-21.gif" alt="Sep-18-202117-54-21" style="zoom:50%;" />
 
 由于我只给一个 path 添加 name，所以只有这一个元素会移动时高亮。
 
@@ -236,7 +236,7 @@ SVG 源文件中加就比较基础了，需要我们写 xml 标签，比如这�
 
 现在的效果是这样的
 
-<img src="../../assets/Sep-19-2021 12-00-25.gif" alt="Sep-19-2021 12-00-25" style="zoom:50%;" />
+<img src="../../assets/Sep-19-202112-00-25.gif" alt="Sep-19-202112-00-25" style="zoom:50%;" />
 
 ### 地域分块 regions 自定义样式
 

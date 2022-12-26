@@ -244,6 +244,7 @@ git reset HEAD  取消被暂存的内容
 git reset --hard xxx版本号 切换版本 这个操作需要add过的文件都commit 否则会删除掉add过的文件
 git reset --hard HEAD 恢复成上次提交的commit
 git reset HEAD^ 恢复到上一个版本
+git reset --soft HEAD^ 恢复到上一个版本，但是 commit依然保留
 ```
 
 删除
