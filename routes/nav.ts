@@ -9,6 +9,7 @@ const nav = [
       { title: '设计模式', path: '/design-pattern' },
       { title: 'HTTP', path: '/http' },
       { title: 'Node', path: '/node' },
+      { title: 'React原理', path: '/react' },
       { title: 'Vue3原理', path: '/vue3' },
       { title: '前端测试', path: '/test' },
       { title: '前端性能优化', path: '/前端性能优化' },
