@@ -11,7 +11,6 @@ const nav = [
       { title: 'Node', path: '/node' },
       { title: 'React原理', path: '/react' },
       { title: 'Vue3原理', path: '/vue3' },
-      { title: '前端测试', path: '/test' },
       { title: '前端性能优化', path: '/前端性能优化' },
     ],
   },
@@ -31,12 +30,12 @@ const nav = [
       { title: 'Docker', path: '/docker' },
     ],
   },
-
-  {
-    title: 'English',
-    path: '/english',
-    children: [{ title: '初级语法', path: '/english/初级语法' }],
-  },
+  { title: 'Jest测试', path: '/test' },
+  // {
+  //   title: 'English',
+  //   path: '/english',
+  //   children: [{ title: '初级语法', path: '/english/初级语法' }],
+  // },
   {
     title: '我的组件库',
     path: 'https://18888628835.github.io/Simpler-Components/vtable',
