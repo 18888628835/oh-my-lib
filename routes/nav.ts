@@ -31,11 +31,10 @@ const nav = [
     ],
   },
   { title: 'Jest测试', path: '/test' },
-  // {
-  //   title: 'English',
-  //   path: '/english',
-  //   children: [{ title: '初级语法', path: '/english/初级语法' }],
-  // },
+  {
+    title: 'AdonisJS',
+    path: '/adonis',
+  },
   {
     title: '我的组件库',
     path: 'https://18888628835.github.io/Simpler-Components/vtable',
