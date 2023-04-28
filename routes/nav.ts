@@ -32,8 +32,8 @@ const nav = [
   },
   { title: 'Jest测试', path: '/test' },
   {
-    title: 'AdonisJS',
-    path: '/adonis',
+    title: 'Next.js',
+    path: '/nextjs',
   },
   {
     title: '我的组件库',
