@@ -9,9 +9,19 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - run: npm install
-      - run: npm run docs:build
+      - uses: actions/checkout@v3
+
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.16.0'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Application
+        run: npm run docs:build
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
