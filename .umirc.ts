@@ -13,8 +13,8 @@ export default defineConfig({
   outputPath: 'docs-dist',
   mode: 'site',
   hash: true,
-  // base: `/${repo}/`,
-  // publicPath: `/${repo}/`,
+  base: `/${repo}/`,
+  publicPath: `/${repo}/`,
   alias: {
     src: '/src',
     components: '/src/components',
